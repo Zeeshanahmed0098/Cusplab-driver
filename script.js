@@ -2,7 +2,7 @@
 // 1. SUPABASE CONFIGURATION (PASTE YOURS HERE)
 // ==========================================
 const SUPABASE_URL = "https://roizxylwegnmxmwwtxht.supabase.co"; 
-const SUPABASE_KEY = "PASTE_YOUR_PUBLISHABLE_KEY_HERE"; // <-- MUST START WITH sb_publishable_
+const SUPABASE_KEY = "sb_publishable_mZTL2tHbdMEGPCy5ut3eww_fIlHd2uK"; // <-- MUST START WITH sb_publishable_
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
