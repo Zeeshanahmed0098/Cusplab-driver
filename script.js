@@ -41,7 +41,7 @@ async function fetchCases() {
       renderDriver();
     }
   } catch (err) {
-    alert("Phone Error: " + err.message);
+    alert("System Error: " + err.message);
   }
 }
 
@@ -58,7 +58,7 @@ function status(s) {
 
 async function login() {
   try {
-    // Force fetch the latest passwords from the cloud before checking
+    // Fetch the latest passwords from the cloud before checking
     const { data, error } = await supabaseClient.from('Settings').select('*').eq('id', 1).single();
     if (data) {
       db.adminPin = data.admin_pin;
@@ -604,8 +604,8 @@ function renderCaseManager() {
   el.innerHTML = db.cases.map(c => `
     <div class="manage-row">
       <div style="flex:2">
-        <b>File: ${esc(c.file)}</b> - ${esc(c.patient)} <br>
-        <span class="muted">${esc(c.clinic)}</span>
+        <b>${esc(c.clinic)}</b> <br>
+        <span class="muted">Dr: ${esc(c.doctor)} · Pt: ${esc(c.patient)} · Job: ${esc(c.job)}</span>
       </div>
       ${status(c.status)}
       <button class="secondary" onclick="printSticker('${c.id}')">Print Sticker</button>
@@ -889,29 +889,61 @@ function printSticker(id) {
   if (!c) return;
   const w = window.open('', '_blank', 'width=450,height=550');
   w.document.write(`
-    <html><head><title>Barcode Sticker</title>
+    <html><head><title>Zebra Sticker</title>
     <style>
-      body { font-family: 'Courier New', monospace; text-align: center; padding: 20px; }
-      .sticker { border: 1px solid #000; padding: 20px; width: 300px; margin: 0 auto; }
-      h2 { margin: 0 0 10px 0; font-size: 18px; }
-      svg { max-width: 100%; height: 60px; margin: 10px 0; }
-      p { margin: 5px 0; font-size: 14px; font-weight: bold; }
-      button { margin-top: 20px; padding: 10px 20px; cursor: pointer; }
-      @media print { button { display: none; } .sticker { border: none; } }
+      @page { margin: 0; }
+      body { 
+        font-family: Arial, sans-serif; 
+        text-align: center; 
+        padding: 10px; 
+        margin: 0;
+      }
+      .sticker { 
+        border: 2px solid #000; 
+        padding: 15px; 
+        width: 280px; 
+        margin: 0 auto; 
+        text-align: left;
+      }
+      h2 { 
+        margin: 0 0 10px 0; 
+        font-size: 18px; 
+        text-align: center;
+        border-bottom: 1px dashed #000;
+        padding-bottom: 5px;
+      }
+      .row { 
+        margin: 8px 0; 
+        font-size: 14px; 
+      }
+      .row b { 
+        display: inline-block; 
+        width: 60px; 
+      }
+      button { 
+        margin-top: 20px; 
+        padding: 10px 20px; 
+        cursor: pointer; 
+        background: #16794b;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-weight: bold;
+      }
+      @media print { 
+        button { display: none; } 
+        .sticker { border: none; } 
+        body { padding: 0; }
+      }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
       <div class="sticker">
-        <h2>${esc(db.brand)} - (${esc(c.file)})</h2>
-        <svg id="barcode"></svg>
-        <p>Clinic - ${esc(c.clinic)}</p>
-        <p>Doctor - ${esc(c.doctor)}</p>
-        <p>Patient - ${esc(c.patient)}</p>
-        <p>File No - ${esc(c.file)}</p>
-        <p style="margin-top:10px;font-size:12px;">Job - ${esc(c.job)}</p>
+        <h2>${esc(c.clinic)}</h2>
+        <div class="row"><b>Doctor:</b> ${esc(c.doctor)}</div>
+        <div class="row"><b>Patient:</b> ${esc(c.patient)}</div>
+        <div class="row"><b>Job No:</b> ${esc(c.job)}</div>
       </div>
       <button onclick="window.print()">🖨️ Print Sticker</button>
-      <script>JsBarcode("#barcode", "${esc(c.file)}", {format: "CODE128", width: 2, height: 60, displayValue: false});<\/script>
     </body></html>
   `);
   w.document.close();
