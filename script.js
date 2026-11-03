@@ -56,12 +56,17 @@ function status(s) {
   return `<span class="pill ${cls}">${esc(s || 'Pending')}</span>`;
 }
 
-function login() {
+async function login() {
   try {
+    // Force fetch the latest passwords from the cloud before checking
+    const { data, error } = await supabaseClient.from('Settings').select('*').eq('id', 1).single();
+    if (data) {
+      db.adminPin = data.admin_pin;
+      db.driverPin = data.driver_pin;
+    }
+
     const r = document.getElementById('role').value;
     const p = document.getElementById('pin').value.trim();
-    
-    // Checks against the passwords fetched from the cloud
     const expected = r === 'admin' ? db.adminPin : db.driverPin;
     
     if (p !== expected) {
@@ -106,13 +111,6 @@ function showTab(id, btn) {
 async function init() {
   applyAppearance();
   
-  // Fetch the latest PINs from the cloud Settings table
-  const { data, error } = await supabaseClient.from('Settings').select('*').eq('id', 1).single();
-  if (data) {
-    db.adminPin = data.admin_pin;
-    db.driverPin = data.driver_pin;
-  }
-
   document.getElementById('brandInput').value = db.brand;
   document.getElementById('subtitleInput').value = db.subtitle;
   
