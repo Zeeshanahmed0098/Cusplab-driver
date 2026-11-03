@@ -1,40 +1,49 @@
-const KEY = 'cusp_customizable_v2';
+// ==========================================
+// 1. SUPABASE CONFIGURATION (PASTE YOURS HERE)
+// ==========================================
+const SUPABASE_URL = "https://roizxylwegnmxmwwtxht.supabase.co/rest/v1/";
+
+const { createClient } = supabase;
+const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const seed = {
   brand: 'CUSP DENTAL LABORATORY',
   subtitle: 'Delivery management system',
   adminPin: '1234',
   driverPin: '1111',
-  clinics: ['Samaya Bin Hamran BH', 'Pearl Clinic', 'ABC Dental Clinic'],
-  avatar: '',
-  appearance: { brand: '#173b60', accent: '#2875ad', bg: '#f2f5f9', surface: '#ffffff' },
-  cases: [
-    { 
-      id:'1', clinic:'Samaya Bin Hamran BH', patient:'mustafa shaha mohammed', doctor:'Dr. Mohmmed Ahmed Bahanshal', job:'JO-1001', file:'1048545', 
-      services: [ { name: 'Zirconia Crown', qty: 1, unitPrice: 450 }, { name: 'Emax', qty: 1, unitPrice: 400 }, { name: 'Complete Denture', qty: 1, unitPrice: 1200 } ],
-      amount: 2050, scheduled:'2026-09-01', status:'Pending', qrData:'1048545' 
-    }
-  ]
+  clinics: ['Samaya Bin Hamran BH', 'Pearl Clinic', 'ABC Dental Clinic']
 };
 
-let db = load();
-let working = null;
+let db = { ...seed, cases: [] };
 let roleNow = 'driver';
 let selectedId = null;
 let html5QrCode = null;
 let isScanning = false;
 let filteredReportCases = [];
 let adminFilter = 'all';
-
 let canvas, ctx, drawing = false;
 
-/* ================= STORAGE ================= */
-function load() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || structuredClone(seed); }
-  catch (e) { return JSON.parse(JSON.stringify(seed)); }
+// ==========================================
+// 2. FETCH DATA FROM SUPABASE
+// ==========================================
+async function fetchCases() {
+  const { data, error } = await supabaseClient.from('Cusp-driver').select('*').order('id', { ascending: false });
+  if (error) {
+    console.error("Error fetching data:", error);
+    alert("Failed to load data from database.");
+    return;
+  }
+  db.cases = data;
+  if (roleNow === 'admin') {
+    renderAdmin();
+  } else {
+    renderDriver();
+  }
 }
-function save() { localStorage.setItem(KEY, JSON.stringify(db)); }
 
+// ==========================================
+// 3. APP LOGIC
+// ==========================================
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
@@ -43,7 +52,6 @@ function status(s) {
   return `<span class="pill ${cls}">${esc(s || 'Pending')}</span>`;
 }
 
-/* ================= AUTH ================= */
 function login() {
   const r = document.getElementById('role').value;
   const p = document.getElementById('pin').value;
@@ -81,19 +89,14 @@ function showTab(id, btn) {
   document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
   
-  if (id === 'driverTab') renderDriver();
-  if (id === 'adminTab') renderAdmin();
-  if (id === 'reportsTab') initReports();
+  fetchCases(); 
 }
 
-/* ================= INIT ================= */
 function init() {
   applyAppearance();
   document.getElementById('brandInput').value = db.brand;
   document.getElementById('subtitleInput').value = db.subtitle;
-  document.getElementById('profilePreview').src = db.avatar || '';
-  document.getElementById('headerAvatar').src = db.avatar || '';
-
+  
   const today = new Date().toISOString().slice(0, 10);
   if (!document.getElementById('caseDate').value) document.getElementById('caseDate').value = today;
   document.getElementById('reportSingleDate').value = today;
@@ -104,22 +107,16 @@ function init() {
   addServiceRow();
 
   fillClinics();
-  renderDriver();
-  if (roleNow === 'admin') renderAdmin();
+  fetchCases(); 
 }
 
 function applyAppearance() {
-  const a = db.appearance || seed.appearance;
-  const root = document.documentElement.style;
-  root.setProperty('--brand', a.brand);
-  root.setProperty('--accent', a.accent);
   document.getElementById('brandTitle').textContent = db.brand;
   document.getElementById('headerSubtitle').textContent = db.subtitle;
-  document.getElementById('headerAvatar').src = db.avatar || '';
 }
 
 function fillClinics(source) {
-  const src = source || working || db;
+  const src = source || db;
   const opts = src.clinics.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   
   const cc = document.getElementById('caseClinic');
@@ -138,20 +135,18 @@ function fillClinics(source) {
   if (rv && src.clinics.includes(rv)) rc.value = rv;
 }
 
-/* ================= DYNAMIC SERVICES CALCULATOR ================= */
 function addServiceRow(name = '', qty = 1, price = '') {
   const container = document.getElementById('servicesContainer');
   const row = document.createElement('div');
   row.className = 'service-row';
   row.innerHTML = `
-    <input type="text" class="service-name" placeholder="Service Name (e.g. Zirconia)" value="${esc(name)}">
+    <input type="text" class="service-name" placeholder="Service Name" value="${esc(name)}">
     <input type="number" class="service-qty" placeholder="Qty" min="1" value="${qty}" oninput="calcRowTotal(this)">
     <input type="number" class="service-price" placeholder="Unit Price" min="0" step="0.01" value="${price}" oninput="calcRowTotal(this)">
     <input type="number" class="service-total" placeholder="Row Total" readonly>
     <button class="danger btn-remove" onclick="this.parentElement.remove(); calcGrandTotal()">X</button>
   `;
   container.appendChild(row);
-  
   if (price) calcRowTotal(row.querySelector('.service-price'));
 }
 
@@ -171,10 +166,8 @@ function calcGrandTotal() {
   document.getElementById('grandTotalDisplay').textContent = total.toFixed(2);
 }
 
-/* ================= EDIT CASE LOGIC ================= */
 function editCase(id) {
-  const w = getWorking();
-  const c = w.cases.find(x => x.id === id);
+  const c = db.cases.find(x => x.id == id);
   if (!c) return;
 
   document.getElementById('editCaseId').value = c.id;
@@ -212,7 +205,6 @@ function addEditServiceRow(name = '', qty = 1, price = '') {
     <button class="danger btn-remove" onclick="this.parentElement.remove(); calcEditGrandTotal()">X</button>
   `;
   container.appendChild(row);
-  
   if (price) calcEditRowTotal(row.querySelector('.service-price'));
 }
 
@@ -238,22 +230,9 @@ function cancelEdit() {
   document.getElementById('manageCasesTitle').textContent = "Manage cases";
 }
 
-function saveEditedCase() {
+async function saveEditedCase() {
   const id = document.getElementById('editCaseId').value;
-  const w = getWorking();
-  const c = w.cases.find(x => x.id === id);
-  if (!c) return;
-
-  c.clinic = document.getElementById('editCaseClinic').value;
-  c.patient = document.getElementById('editPatient').value.trim() || c.patient;
-  c.doctor = document.getElementById('editDoctor').value.trim();
-  c.job = document.getElementById('editJob').value.trim();
-  c.file = document.getElementById('editFile').value.trim();
-  c.status = document.getElementById('editStatus').value;
-  c.scheduled = document.getElementById('editDate').value;
   
-  if (c.file) c.qrData = c.file;
-
   const rows = document.querySelectorAll('#editServicesContainer .service-row');
   let services = [];
   let grandTotal = 0;
@@ -269,16 +248,28 @@ function saveEditedCase() {
 
   if (services.length === 0) return alert("Please add at least one valid service.");
 
-  c.services = services;
-  c.amount = grandTotal;
+  const updates = {
+    clinic: document.getElementById('editCaseClinic').value,
+    patient: document.getElementById('editPatient').value.trim(),
+    doctor: document.getElementById('editDoctor').value.trim(),
+    job: document.getElementById('editJob').value.trim(),
+    file: document.getElementById('editFile').value.trim(),
+    status: document.getElementById('editStatus').value,
+    scheduled: document.getElementById('editDate').value,
+    services: services,
+    amount: grandTotal
+  };
 
-  cancelEdit(); 
-  renderCaseManager(); 
-  updateUnsavedBanner();
-  alert('Case updated! Remember to click "Save changes" globally to save permanently.');
+  const { error } = await supabaseClient.from('Cusp-driver').update(updates).eq('id', id);
+  if (error) {
+    alert("Error updating: " + error.message);
+  } else {
+    cancelEdit(); 
+    fetchCases(); 
+    alert('✅ Case updated successfully in the database!');
+  }
 }
 
-/* ================= BARCODE SCANNER ================= */
 function startScanner() {
   if (isScanning) return;
   document.getElementById('reader').classList.remove('hidden');
@@ -322,7 +313,7 @@ function manualLookup() {
 }
 
 function processScannedCode(code) {
-  const foundCase = db.cases.find(c => (String(c.file) === String(code) || c.id === code || c.qrData === code) && c.status === 'Pending');
+  const foundCase = db.cases.find(c => (String(c.file) === String(code) || c.id == code || c.qrData === code) && c.status === 'Pending');
   
   if (foundCase) {
     selectedId = foundCase.id;
@@ -335,10 +326,8 @@ function processScannedCode(code) {
   }
 }
 
-/* ================= DRIVER RENDER ================= */
 function renderDriver() {
   let base = db.cases.filter(c => c.status === 'Pending');
-  
   const search = (document.getElementById('driverSearch').value || '').toLowerCase();
   if (search) {
     base = base.filter(c => 
@@ -369,7 +358,7 @@ function selectCase(id) {
 
 function renderCasePanel() {
   const p = document.getElementById('casePanel');
-  const c = db.cases.find(x => x.id === selectedId);
+  const c = db.cases.find(x => x.id == selectedId);
 
   if (!c || c.status !== 'Pending') {
     p.innerHTML = '<h3 style="margin-top:0">Selected case details</h3><p class="muted">Choose a case above or scan a barcode to see details and confirm delivery.</p>';
@@ -438,7 +427,6 @@ function setupCanvas() {
     };
   }
 
-  // Using passive: false to allow preventDefault to stop screen scrolling on mobile
   canvas.addEventListener('touchstart', e => { e.preventDefault(); }, { passive: false });
   canvas.addEventListener('touchmove', e => { e.preventDefault(); }, { passive: false });
 
@@ -463,8 +451,7 @@ function clearSig() {
   if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
 }
 
-function saveSignature(id) {
-  const c = db.cases.find(x => x.id === id);
+async function saveSignature(id) {
   const name = document.getElementById('receiver').value.trim();
   if (!name) { alert('Please enter the receiver name.'); return; }
 
@@ -472,31 +459,37 @@ function saveSignature(id) {
   const hasInk = Array.from(pixels).some((v, i) => i % 4 === 3 && v > 0);
   if (!hasInk) { alert('Please sign in the box.'); return; }
 
-  c.status = 'Signed';
-  c.receiver = name;
-  c.signature = canvas.toDataURL();
-  c.signedAt = new Date().toISOString();
-  
-  save();
+  const updates = {
+    status: 'Signed',
+    receiver: name,
+    signature: canvas.toDataURL(),
+    signedAt: new Date().toISOString()
+  };
+
+  const { error } = await supabaseClient.from('Cusp-driver').update(updates).eq('id', id);
+  if (error) { alert("Error: " + error.message); return; }
+
   selectedId = null; 
-  renderDriver();    
-  alert('✅ Delivery confirmed & removed from pending list!');
+  fetchCases(); 
+  alert('✅ Delivery confirmed & saved to cloud!');
 }
 
-function reportIssue(id) {
-  const c = db.cases.find(x => x.id === id);
-  c.status = 'Issue Reported';
-  c.reason = document.getElementById('issueReason').value;
-  c.notes = document.getElementById('issueNotes').value;
-  c.signedAt = new Date().toISOString();
-  
-  save();
+async function reportIssue(id) {
+  const updates = {
+    status: 'Issue Reported',
+    reason: document.getElementById('issueReason').value,
+    notes: document.getElementById('issueNotes').value,
+    signedAt: new Date().toISOString()
+  };
+
+  const { error } = await supabaseClient.from('Cusp-driver').update(updates).eq('id', id);
+  if (error) { alert("Error: " + error.message); return; }
+
   selectedId = null; 
-  renderDriver();    
-  alert('⚠ Issue reported & removed from pending list.');
+  fetchCases(); 
+  alert('⚠ Issue reported & saved to cloud.');
 }
 
-/* ================= ADMIN DASHBOARD ================= */
 function filterAdmin(type) {
   adminFilter = type;
   renderAdmin();
@@ -506,7 +499,6 @@ function renderAdmin() {
   if (roleNow !== 'admin') return;
   renderClinicManager();
   renderCaseManager();
-  updateUnsavedBanner();
 
   const all = db.cases;
   document.getElementById('totalCases').textContent = all.length;
@@ -554,15 +546,116 @@ function renderAdmin() {
     : '<p class="muted">No records found for this filter.</p>';
 }
 
-/* ================= REPORTS TAB ================= */
+function renderClinicManager() {
+  const el = document.getElementById('clinicManageList');
+  el.innerHTML = db.clinics.map(clinic => `
+    <div class="manage-row">
+      <input value="${esc(clinic)}" id="clinic-input-${esc(clinic)}">
+      <button class="secondary" onclick="renameClinic('${esc(clinic)}')">Rename</button>
+      <button class="danger" onclick="deleteClinic('${esc(clinic)}')">Delete</button>
+    </div>
+  `).join('');
+}
+
+function addClinic() {
+  const n = document.getElementById('newClinic').value.trim();
+  if (!n) return;
+  if (db.clinics.some(x => x.toLowerCase() === n.toLowerCase())) return alert('Already exists');
+  db.clinics.push(n);
+  document.getElementById('newClinic').value = '';
+  fillClinics();
+  renderClinicManager();
+}
+
+function renameClinic(oldName) {
+  const newName = document.getElementById('clinic-input-' + oldName).value.trim();
+  if (!newName || newName === oldName) return;
+  db.clinics[db.clinics.indexOf(oldName)] = newName;
+  fillClinics();
+  renderClinicManager();
+}
+
+function deleteClinic(clinic) {
+  if (!confirm('Delete clinic?')) return;
+  db.clinics = db.clinics.filter(c => c !== clinic);
+  fillClinics();
+  renderClinicManager();
+}
+
+function renderCaseManager() {
+  const el = document.getElementById('caseManageList');
+  el.innerHTML = db.cases.map(c => `
+    <div class="manage-row">
+      <div style="flex:2">
+        <b>File: ${esc(c.file)}</b> - ${esc(c.patient)} <br>
+        <span class="muted">${esc(c.clinic)}</span>
+      </div>
+      ${status(c.status)}
+      <button class="secondary" onclick="printSticker('${c.id}')">Print Sticker</button>
+      <button class="secondary" onclick="editCase('${c.id}')">Edit</button>
+      <button class="danger" onclick="deleteCase('${c.id}')">Delete</button>
+    </div>
+  `).join('');
+}
+
+async function addCase() {
+  const clinic = document.getElementById('caseClinic').value;
+  const patient = document.getElementById('patient').value.trim();
+  const job = document.getElementById('job').value.trim();
+  const fileNo = document.getElementById('file').value.trim();
+  
+  if (!clinic || !patient || !job || !fileNo) return alert('Clinic, Patient, Job Order, and File No are required.');
+
+  const rows = document.querySelectorAll('#servicesContainer .service-row');
+  let services = [];
+  let grandTotal = 0;
+
+  rows.forEach(r => {
+    const name = r.querySelector('.service-name').value.trim();
+    const qty = Number(r.querySelector('.service-qty').value) || 1;
+    const price = Number(r.querySelector('.service-price').value) || 0;
+    if (name) {
+      services.push({ name, qty, unitPrice: price });
+      grandTotal += (qty * price);
+    }
+  });
+
+  if (services.length === 0) return alert("Please add at least one valid service.");
+
+  const newCase = {
+    clinic, patient, job,
+    file: fileNo,
+    doctor: document.getElementById('doctor').value,
+    services: services,
+    amount: grandTotal,
+    scheduled: document.getElementById('caseDate').value,
+    status: 'Pending',
+    qrData: fileNo 
+  };
+
+  const { error } = await supabaseClient.from('Cusp-driver').insert([newCase]);
+  if (error) { alert("Error saving to database: " + error.message); return; }
+
+  ['patient','doctor','job','file'].forEach(x => document.getElementById(x).value = '');
+  document.getElementById('servicesContainer').innerHTML = '';
+  addServiceRow();
+  calcGrandTotal();
+  
+  fetchCases(); 
+  alert('Case added to cloud database!');
+}
+
+async function deleteCase(id) {
+  if (!confirm('Delete this case?')) return;
+  const { error } = await supabaseClient.from('Cusp-driver').delete().eq('id', id);
+  if (error) { alert("Error: " + error.message); return; }
+  fetchCases();
+}
+
 function toggleReportDates() {
   const type = document.getElementById('reportDateType').value;
   document.getElementById('singleDateDiv').classList.toggle('hidden', type !== 'single');
   document.getElementById('rangeDateDiv').classList.toggle('hidden', type !== 'range');
-  renderReport();
-}
-
-function initReports() {
   renderReport();
 }
 
@@ -710,7 +803,7 @@ function printFullReport() {
 }
 
 function printSingleRecord(id) {
-  const c = db.cases.find(x => x.id === id);
+  const c = db.cases.find(x => x.id == id);
   if (!c) return;
 
   let srvRows = '';
@@ -774,149 +867,8 @@ function printSingleRecord(id) {
   w.document.close();
 }
 
-/* ================= MANAGE CLINICS & CASES ================= */
-function getWorking() { return working || (working = JSON.parse(JSON.stringify(db))); }
-function hasPendingChanges() { return working && JSON.stringify(working) !== JSON.stringify(db); }
-function updateUnsavedBanner() { document.getElementById('unsavedBanner').classList.toggle('hidden', !hasPendingChanges()); }
-
-function saveAllChanges() {
-  if (!hasPendingChanges()) { alert('Nothing to save.'); return; }
-  db = JSON.parse(JSON.stringify(working));
-  save();
-  working = null;
-  renderAdmin();
-  renderDriver();
-  initReports();
-  updateUnsavedBanner();
-  alert('Changes saved.');
-}
-
-function discardChanges() {
-  working = null;
-  renderAdmin();
-  updateUnsavedBanner();
-}
-
-function renderClinicManager() {
-  const el = document.getElementById('clinicManageList');
-  const w = working || db;
-  el.innerHTML = w.clinics.map(clinic => `
-    <div class="manage-row">
-      <input value="${esc(clinic)}" id="clinic-input-${esc(clinic)}">
-      <button class="secondary" onclick="renameClinic('${esc(clinic)}')">Rename</button>
-      <button class="danger" onclick="deleteClinic('${esc(clinic)}')">Delete</button>
-    </div>
-  `).join('');
-}
-
-function addClinic() {
-  const n = document.getElementById('newClinic').value.trim();
-  if (!n) return;
-  const w = getWorking();
-  if (w.clinics.some(x => x.toLowerCase() === n.toLowerCase())) return alert('Already exists');
-  w.clinics.push(n);
-  document.getElementById('newClinic').value = '';
-  fillClinics(w);
-  renderClinicManager();
-  updateUnsavedBanner();
-}
-
-function renameClinic(oldName) {
-  const newName = document.getElementById('clinic-input-' + oldName).value.trim();
-  if (!newName || newName === oldName) return;
-  const w = getWorking();
-  w.clinics[w.clinics.indexOf(oldName)] = newName;
-  w.cases.forEach(c => { if (c.clinic === oldName) c.clinic = newName; });
-  fillClinics(w);
-  renderClinicManager();
-  updateUnsavedBanner();
-}
-
-function deleteClinic(clinic) {
-  if (!confirm('Delete clinic and all its cases?')) return;
-  const w = getWorking();
-  w.clinics = w.clinics.filter(c => c !== clinic);
-  w.cases = w.cases.filter(c => c.clinic !== clinic);
-  fillClinics(w);
-  renderClinicManager();
-  renderCaseManager();
-  updateUnsavedBanner();
-}
-
-function renderCaseManager() {
-  const el = document.getElementById('caseManageList');
-  const w = working || db;
-  el.innerHTML = w.cases.map(c => `
-    <div class="manage-row">
-      <div style="flex:2">
-        <b>File: ${esc(c.file)}</b> - ${esc(c.patient)} <br>
-        <span class="muted">${esc(c.clinic)}</span>
-      </div>
-      ${status(c.status)}
-      <button class="secondary" onclick="printSticker('${c.id}')">Print Sticker</button>
-      <button class="secondary" onclick="editCase('${c.id}')">Edit</button>
-      <button class="danger" onclick="deleteCase('${c.id}')">Delete</button>
-    </div>
-  `).join('');
-}
-
-function addCase() {
-  const clinic = document.getElementById('caseClinic').value;
-  const patient = document.getElementById('patient').value.trim();
-  const job = document.getElementById('job').value.trim();
-  const fileNo = document.getElementById('file').value.trim();
-  
-  if (!clinic || !patient || !job || !fileNo) return alert('Clinic, Patient, Job Order, and File No are required.');
-
-  const rows = document.querySelectorAll('#servicesContainer .service-row');
-  let services = [];
-  let grandTotal = 0;
-
-  rows.forEach(r => {
-    const name = r.querySelector('.service-name').value.trim();
-    const qty = Number(r.querySelector('.service-qty').value) || 1;
-    const price = Number(r.querySelector('.service-price').value) || 0;
-    if (name) {
-      services.push({ name, qty, unitPrice: price });
-      grandTotal += (qty * price);
-    }
-  });
-
-  if (services.length === 0) return alert("Please add at least one valid service.");
-
-  const w = getWorking();
-  w.cases.push({
-    id: Date.now().toString(),
-    clinic, patient, job,
-    file: fileNo,
-    doctor: document.getElementById('doctor').value,
-    services: services,
-    amount: grandTotal,
-    scheduled: document.getElementById('caseDate').value,
-    status: 'Pending',
-    qrData: fileNo 
-  });
-
-  ['patient','doctor','job','file'].forEach(x => document.getElementById(x).value = '');
-  document.getElementById('servicesContainer').innerHTML = '';
-  addServiceRow();
-  calcGrandTotal();
-  
-  renderCaseManager();
-  updateUnsavedBanner();
-  alert('Case added! Remember to click "Save changes" below.');
-}
-
-function deleteCase(id) {
-  if (!confirm('Delete this case?')) return;
-  const w = getWorking();
-  w.cases = w.cases.filter(c => c.id !== id);
-  renderCaseManager();
-  updateUnsavedBanner();
-}
-
 function printSticker(id) {
-  const c = db.cases.find(x => x.id === id);
+  const c = db.cases.find(x => x.id == id);
   if (!c) return;
   const w = window.open('', '_blank', 'width=450,height=550');
   w.document.write(`
@@ -951,7 +903,6 @@ function printSticker(id) {
 function saveAppearance() {
   db.brand = document.getElementById('brandInput').value.trim() || 'CUSP DENTAL LABORATORY';
   db.subtitle = document.getElementById('subtitleInput').value.trim();
-  save();
   applyAppearance();
   alert('Appearance saved.');
 }
@@ -962,7 +913,6 @@ function loadAvatar(e) {
     db.avatar = reader.result;
     document.getElementById('profilePreview').src = reader.result;
     document.getElementById('headerAvatar').src = reader.result;
-    save();
   };
   if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
 }
@@ -979,7 +929,6 @@ function savePins() {
   if (newAdmin) db.adminPin = newAdmin;
   if (newDriver) db.driverPin = newDriver;
   
-  save();
   document.getElementById('newAdminPin').value = '';
   document.getElementById('newDriverPin').value = '';
   alert('✅ PINs updated successfully!');
