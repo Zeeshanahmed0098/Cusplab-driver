@@ -177,7 +177,6 @@ function editCase(id) {
   const c = w.cases.find(x => x.id === id);
   if (!c) return;
 
-  // Populate the edit form
   document.getElementById('editCaseId').value = c.id;
   document.getElementById('editCaseClinic').value = c.clinic;
   document.getElementById('editPatient').value = c.patient;
@@ -187,17 +186,15 @@ function editCase(id) {
   document.getElementById('editStatus').value = c.status;
   document.getElementById('editDate').value = c.scheduled || '';
 
-  // Load Services into the Edit Form
   const container = document.getElementById('editServicesContainer');
   container.innerHTML = '';
   if (c.services && c.services.length > 0) {
     c.services.forEach(s => addEditServiceRow(s.name, s.qty, s.unitPrice));
   } else {
-    addEditServiceRow(); // Empty row if none exist
+    addEditServiceRow();
   }
   calcEditGrandTotal();
 
-  // Toggle UI
   document.getElementById('caseManageList').classList.add('hidden');
   document.getElementById('manageCasesTitle').textContent = "Editing: " + c.patient;
   document.getElementById('editCaseForm').classList.remove('hidden');
@@ -257,7 +254,6 @@ function saveEditedCase() {
   
   if (c.file) c.qrData = c.file;
 
-  // Gather Services
   const rows = document.querySelectorAll('#editServicesContainer .service-row');
   let services = [];
   let grandTotal = 0;
@@ -276,8 +272,8 @@ function saveEditedCase() {
   c.services = services;
   c.amount = grandTotal;
 
-  cancelEdit(); // Hide form, show list
-  renderCaseManager(); // Refresh list
+  cancelEdit(); 
+  renderCaseManager(); 
   updateUnsavedBanner();
   alert('Case updated! Remember to click "Save changes" globally to save permanently.');
 }
@@ -441,6 +437,10 @@ function setupCanvas() {
       y: (e.clientY - r.top)  * canvas.height / r.height
     };
   }
+
+  // Using passive: false to allow preventDefault to stop screen scrolling on mobile
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); }, { passive: false });
+  canvas.addEventListener('touchmove', e => { e.preventDefault(); }, { passive: false });
 
   canvas.onpointerdown = e => {
     drawing = true;
