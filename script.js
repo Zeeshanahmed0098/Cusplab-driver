@@ -1,8 +1,8 @@
 // ==========================================
-// 1. SUPABASE CONFIGURATION (PASTE YOURS HERE)
+// 1. SUPABASE CONFIGURATION
 // ==========================================
 const SUPABASE_URL = "https://roizxylwegnmxmwwtxht.supabase.co"; 
-const SUPABASE_KEY = "sb_publishable_mZTL2tHbdMEGPCy5ut3eww_fIlHd2uK"; // <-- MUST START WITH sb_publishable_
+const SUPABASE_KEY = "sb_publishable_mZTL2tHbdMEGPCy5ut3eww_fIlHd2uK"; 
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -78,7 +78,7 @@ function login() {
     showTab(first, document.querySelector(`[data-tab="${first}"]`));
     init();
   } catch (error) {
-    alert("Phone Error: " + error.message);
+    alert("System Error: " + error.message);
   }
 }
 
@@ -942,3 +942,10 @@ function savePins() {
   document.getElementById('newDriverPin').value = '';
   alert('✅ PINs updated successfully!');
 }
+
+// ==========================================
+// 4. INITIALIZE BUTTON (THIS WAS MISSING!)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('loginBtn').addEventListener('click', login);
+});
