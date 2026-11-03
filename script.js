@@ -1,7 +1,8 @@
 // ==========================================
 // 1. SUPABASE CONFIGURATION (PASTE YOURS HERE)
 // ==========================================
-const SUPABASE_URL = "https://roizxylwegnmxmwwtxht.supabase.co/rest/v1/";
+const SUPABASE_URL = "https://roizxylwegnmxmwwtxht.supabase.co"; 
+const SUPABASE_KEY = "PASTE_YOUR_PUBLISHABLE_KEY_HERE"; // <-- MUST START WITH sb_publishable_
 
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -27,17 +28,20 @@ let canvas, ctx, drawing = false;
 // 2. FETCH DATA FROM SUPABASE
 // ==========================================
 async function fetchCases() {
-  const { data, error } = await supabaseClient.from('Cusp-driver').select('*').order('id', { ascending: false });
-  if (error) {
-    console.error("Error fetching data:", error);
-    alert("Failed to load data from database.");
-    return;
-  }
-  db.cases = data;
-  if (roleNow === 'admin') {
-    renderAdmin();
-  } else {
-    renderDriver();
+  try {
+    const { data, error } = await supabaseClient.from('Cusp-driver').select('*').order('id', { ascending: false });
+    if (error) {
+      alert("Database Error: " + error.message);
+      return;
+    }
+    db.cases = data;
+    if (roleNow === 'admin') {
+      renderAdmin();
+    } else {
+      renderDriver();
+    }
+  } catch (err) {
+    alert("Phone Error: " + err.message);
   }
 }
 
@@ -53,24 +57,29 @@ function status(s) {
 }
 
 function login() {
-  const r = document.getElementById('role').value;
-  const p = document.getElementById('pin').value;
-  const expected = r === 'admin' ? db.adminPin : db.driverPin;
-  if (p !== expected) {
-    document.getElementById('loginError').textContent = 'Incorrect PIN.';
-    return;
+  try {
+    const r = document.getElementById('role').value;
+    const p = document.getElementById('pin').value.trim();
+    const expected = r === 'admin' ? '1234' : '1111';
+    
+    if (p !== expected) {
+      document.getElementById('loginError').textContent = 'Incorrect PIN.';
+      return;
+    }
+    roleNow = r;
+    document.getElementById('loginCard').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    
+    document.querySelector('[data-tab="adminTab"]').classList.toggle('hidden', r !== 'admin');
+    document.querySelector('[data-tab="reportsTab"]').classList.toggle('hidden', r !== 'admin');
+    document.querySelector('[data-tab="settingsTab"]').classList.toggle('hidden', r !== 'admin');
+    
+    const first = r === 'admin' ? 'adminTab' : 'driverTab';
+    showTab(first, document.querySelector(`[data-tab="${first}"]`));
+    init();
+  } catch (error) {
+    alert("Phone Error: " + error.message);
   }
-  roleNow = r;
-  document.getElementById('loginCard').classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
-  
-  document.querySelector('[data-tab="adminTab"]').classList.toggle('hidden', r !== 'admin');
-  document.querySelector('[data-tab="reportsTab"]').classList.toggle('hidden', r !== 'admin');
-  document.querySelector('[data-tab="settingsTab"]').classList.toggle('hidden', r !== 'admin');
-  
-  const first = r === 'admin' ? 'adminTab' : 'driverTab';
-  showTab(first, document.querySelector(`[data-tab="${first}"]`));
-  init();
 }
 
 function logout() {

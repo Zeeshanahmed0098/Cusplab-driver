@@ -4,8 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CUSP Delivery System</title>
+<!-- Barcode Generator -->
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<!-- Barcode Scanner -->
 <script src="https://unpkg.com/html5-qrcode"></script>
+<!-- SUPABASE LIBRARY (CRITICAL FOR MOBILE) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -37,7 +41,7 @@
       <input id="pin" type="password" inputmode="numeric" placeholder="Enter PIN">
     </div>
   </div>
-  <p><button onclick="login()">Open system</button></p>
+  <p><button type="button" id="loginBtn">Open system</button></p>
   <p id="loginError" class="muted"></p>
 </div>
 
@@ -114,23 +118,9 @@
       <div style="overflow:auto" id="adminRecords"></div>
     </div>
 
-    <div class="card unsaved-banner hidden" id="unsavedBanner">
-      <div class="row">
-        <div style="flex:2">
-          <b>⚠ You have unsaved changes.</b>
-          <p class="muted" style="margin:4px 0 0">Click <b>Save changes</b> to apply them everywhere.</p>
-        </div>
-        <div style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="secondary" onclick="discardChanges()">Discard</button>
-          <button class="primary-save" onclick="saveAllChanges()">Save changes</button>
-        </div>
-      </div>
-    </div>
-
     <div class="card">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3 style="margin:0">Manage clinics</h3>
-        <button class="save-btn" onclick="saveAllChanges()">Save clinic changes</button>
       </div>
       <div class="row" style="margin-top:10px">
         <input id="newClinic" placeholder="New clinic name">
@@ -143,13 +133,12 @@
     <div class="card" id="caseManagerCard">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3 style="margin:0" id="manageCasesTitle">Manage cases</h3>
-        <button class="save-btn" onclick="saveAllChanges()">Save case changes</button>
       </div>
       
       <!-- Standard List -->
       <div id="caseManageList" style="margin-top:12px"></div>
       
-      <!-- FULL EDIT FORM (Hidden by default) -->
+      <!-- FULL EDIT FORM -->
       <div id="editCaseForm" class="hidden" style="margin-top:15px; padding:20px; border:2px solid var(--accent); border-radius:8px; background:#f8fafc;">
         <h3 style="margin-top:0; color:var(--accent)">✏️ Editing Case</h3>
         <input type="hidden" id="editCaseId">
