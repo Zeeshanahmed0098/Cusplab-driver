@@ -33,8 +33,12 @@ button.primary-save { background: #16794b; }
 
 .grid  { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.stat { background: color-mix(in srgb, var(--accent) 8%, white); border-radius: 9px; padding: 12px; }
+
+.stat { background: color-mix(in srgb, var(--accent) 8%, white); border-radius: 9px; padding: 15px; border: 2px solid transparent; transition: all .2s ease; }
 .stat b { font-size: 24px; display: block; }
+.stat.clickable { cursor: pointer; }
+.stat.clickable:hover { background: color-mix(in srgb, var(--accent) 15%, white); transform: translateY(-2px); }
+.stat.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, white); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 
 label { display: block; font-size: 13px; font-weight: 700; margin: 9px 0 4px; }
 input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd6e2; border-radius: 8px; background: white; color: #172536; font: inherit; }

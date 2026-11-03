@@ -24,6 +24,7 @@ let selectedId = null;
 let html5QrCode = null;
 let isScanning = false;
 let filteredReportCases = [];
+let adminFilter = 'all';
 
 let canvas, ctx, drawing = false;
 
@@ -126,6 +127,11 @@ function fillClinics(source) {
   cc.innerHTML = opts;
   if (cv && src.clinics.includes(cv)) cc.value = cv;
 
+  const ec = document.getElementById('editCaseClinic');
+  const ecv = ec.value;
+  ec.innerHTML = opts;
+  if (ecv && src.clinics.includes(ecv)) ec.value = ecv;
+
   const rc = document.getElementById('reportClinic');
   const rv = rc.value;
   rc.innerHTML = '<option value="">All Clinics</option>' + opts;
@@ -163,6 +169,117 @@ function calcGrandTotal() {
     total += parseFloat(row.querySelector('.service-total').value) || 0;
   });
   document.getElementById('grandTotalDisplay').textContent = total.toFixed(2);
+}
+
+/* ================= EDIT CASE LOGIC ================= */
+function editCase(id) {
+  const w = getWorking();
+  const c = w.cases.find(x => x.id === id);
+  if (!c) return;
+
+  // Populate the edit form
+  document.getElementById('editCaseId').value = c.id;
+  document.getElementById('editCaseClinic').value = c.clinic;
+  document.getElementById('editPatient').value = c.patient;
+  document.getElementById('editDoctor').value = c.doctor || '';
+  document.getElementById('editJob').value = c.job;
+  document.getElementById('editFile').value = c.file;
+  document.getElementById('editStatus').value = c.status;
+  document.getElementById('editDate').value = c.scheduled || '';
+
+  // Load Services into the Edit Form
+  const container = document.getElementById('editServicesContainer');
+  container.innerHTML = '';
+  if (c.services && c.services.length > 0) {
+    c.services.forEach(s => addEditServiceRow(s.name, s.qty, s.unitPrice));
+  } else {
+    addEditServiceRow(); // Empty row if none exist
+  }
+  calcEditGrandTotal();
+
+  // Toggle UI
+  document.getElementById('caseManageList').classList.add('hidden');
+  document.getElementById('manageCasesTitle').textContent = "Editing: " + c.patient;
+  document.getElementById('editCaseForm').classList.remove('hidden');
+}
+
+function addEditServiceRow(name = '', qty = 1, price = '') {
+  const container = document.getElementById('editServicesContainer');
+  const row = document.createElement('div');
+  row.className = 'service-row';
+  row.innerHTML = `
+    <input type="text" class="service-name" placeholder="Service Name" value="${esc(name)}">
+    <input type="number" class="service-qty" placeholder="Qty" min="1" value="${qty}" oninput="calcEditRowTotal(this)">
+    <input type="number" class="service-price" placeholder="Unit Price" min="0" step="0.01" value="${price}" oninput="calcEditRowTotal(this)">
+    <input type="number" class="service-total" placeholder="Row Total" readonly>
+    <button class="danger btn-remove" onclick="this.parentElement.remove(); calcEditGrandTotal()">X</button>
+  `;
+  container.appendChild(row);
+  
+  if (price) calcEditRowTotal(row.querySelector('.service-price'));
+}
+
+function calcEditRowTotal(input) {
+  const row = input.closest('.service-row');
+  const qty = parseFloat(row.querySelector('.service-qty').value) || 0;
+  const price = parseFloat(row.querySelector('.service-price').value) || 0;
+  row.querySelector('.service-total').value = (qty * price).toFixed(2);
+  calcEditGrandTotal();
+}
+
+function calcEditGrandTotal() {
+  let total = 0;
+  document.querySelectorAll('#editServicesContainer .service-row').forEach(row => {
+    total += parseFloat(row.querySelector('.service-total').value) || 0;
+  });
+  document.getElementById('editGrandTotalDisplay').textContent = total.toFixed(2);
+}
+
+function cancelEdit() {
+  document.getElementById('editCaseForm').classList.add('hidden');
+  document.getElementById('caseManageList').classList.remove('hidden');
+  document.getElementById('manageCasesTitle').textContent = "Manage cases";
+}
+
+function saveEditedCase() {
+  const id = document.getElementById('editCaseId').value;
+  const w = getWorking();
+  const c = w.cases.find(x => x.id === id);
+  if (!c) return;
+
+  c.clinic = document.getElementById('editCaseClinic').value;
+  c.patient = document.getElementById('editPatient').value.trim() || c.patient;
+  c.doctor = document.getElementById('editDoctor').value.trim();
+  c.job = document.getElementById('editJob').value.trim();
+  c.file = document.getElementById('editFile').value.trim();
+  c.status = document.getElementById('editStatus').value;
+  c.scheduled = document.getElementById('editDate').value;
+  
+  if (c.file) c.qrData = c.file;
+
+  // Gather Services
+  const rows = document.querySelectorAll('#editServicesContainer .service-row');
+  let services = [];
+  let grandTotal = 0;
+  rows.forEach(r => {
+    const name = r.querySelector('.service-name').value.trim();
+    const qty = Number(r.querySelector('.service-qty').value) || 1;
+    const price = Number(r.querySelector('.service-price').value) || 0;
+    if (name) {
+      services.push({ name, qty, unitPrice: price });
+      grandTotal += (qty * price);
+    }
+  });
+
+  if (services.length === 0) return alert("Please add at least one valid service.");
+
+  c.services = services;
+  c.amount = grandTotal;
+
+  cancelEdit(); // Hide form, show list
+  renderCaseManager(); // Refresh list
+  updateUnsavedBanner();
+  alert('Case updated! Remember to click "Save changes" globally to save permanently.');
 }
 
 /* ================= BARCODE SCANNER ================= */
@@ -379,7 +496,12 @@ function reportIssue(id) {
   alert('⚠ Issue reported & removed from pending list.');
 }
 
-/* ================= ADMIN & REPORTS ================= */
+/* ================= ADMIN DASHBOARD ================= */
+function filterAdmin(type) {
+  adminFilter = type;
+  renderAdmin();
+}
+
 function renderAdmin() {
   if (roleNow !== 'admin') return;
   renderClinicManager();
@@ -392,10 +514,32 @@ function renderAdmin() {
   document.getElementById('issueCases').textContent = all.filter(c => c.status === 'Issue Reported').length;
   document.getElementById('pendingCases').textContent = all.filter(c => c.status === 'Pending').length;
 
-  document.getElementById('adminRecords').innerHTML = all.length
+  document.querySelectorAll('.stat').forEach(el => el.classList.remove('active'));
+  if (adminFilter === 'all') document.getElementById('stat-all').classList.add('active');
+  if (adminFilter === 'Signed') document.getElementById('stat-signed').classList.add('active');
+  if (adminFilter === 'Issue Reported') document.getElementById('stat-issue').classList.add('active');
+  if (adminFilter === 'Pending') document.getElementById('stat-pending').classList.add('active');
+
+  let filtered = all;
+  let title = "All Delivery Records";
+  
+  if (adminFilter === 'Signed') {
+    filtered = all.filter(c => c.status === 'Signed');
+    title = "Signed Records";
+  } else if (adminFilter === 'Issue Reported') {
+    filtered = all.filter(c => c.status === 'Issue Reported');
+    title = "Issue Reported Records";
+  } else if (adminFilter === 'Pending') {
+    filtered = all.filter(c => c.status === 'Pending');
+    title = "Pending Records";
+  }
+  
+  document.getElementById('adminRecordsTitle').textContent = title;
+
+  document.getElementById('adminRecords').innerHTML = filtered.length
     ? `<table>
         <tr><th>File / Job</th><th>Patient</th><th>Amount</th><th>Status</th><th>Action</th></tr>
-        ${all.map(c => `
+        ${filtered.map(c => `
           <tr>
             <td>${esc(c.file)}<br>${esc(c.job)}</td>
             <td>${esc(c.patient)}</td>
@@ -407,9 +551,10 @@ function renderAdmin() {
             </td>
           </tr>`).join('')}
       </table>`
-    : '<p class="muted">No cases.</p>';
+    : '<p class="muted">No records found for this filter.</p>';
 }
 
+/* ================= REPORTS TAB ================= */
 function toggleReportDates() {
   const type = document.getElementById('reportDateType').value;
   document.getElementById('singleDateDiv').classList.toggle('hidden', type !== 'single');
@@ -423,6 +568,7 @@ function initReports() {
 
 function renderReport() {
   const clinic = document.getElementById('reportClinic').value;
+  const statusFilter = document.getElementById('reportStatus').value;
   const type = document.getElementById('reportDateType').value;
   
   const singleDate = document.getElementById('reportSingleDate').value;
@@ -430,6 +576,7 @@ function renderReport() {
   const endDate = document.getElementById('reportEndDate').value;
 
   filteredReportCases = db.cases.filter(c => {
+    if (c.status !== statusFilter) return false;
     if (clinic && c.clinic !== clinic) return false;
     const caseDate = (c.signedAt || c.scheduled || '').slice(0, 10);
     if (!caseDate) return false;
@@ -441,6 +588,8 @@ function renderReport() {
     }
     return true;
   });
+
+  document.getElementById('reportTitle').textContent = statusFilter + " Delivery Records";
 
   const el = document.getElementById('reportRecords');
   if (filteredReportCases.length === 0) {
@@ -457,7 +606,7 @@ function renderReport() {
           <th>Pt Name / File / Job</th>
           <th>Services</th>
           <th>Total</th>
-          <th>Receiver / Signature</th>
+          <th>Status / Details</th>
           <th>Action</th>
         </tr>
       </thead>
@@ -465,6 +614,15 @@ function renderReport() {
         ${filteredReportCases.map(c => {
           let srv = '';
           if(c.services && c.services.length > 0) srv = c.services.map(s => `${esc(s.name)} (x${s.qty})`).join('<br>');
+          
+          let detail = '';
+          if (c.status === 'Signed') {
+            detail = `<b>${esc(c.receiver)}</b><br>${c.signature ? `<img src="${c.signature}" class="sig-img">` : ''}`;
+          } else if (c.status === 'Issue Reported') {
+            detail = `<span style="color:#a52b2b;font-weight:bold">${esc(c.reason)}</span><br>${esc(c.notes)}`;
+          } else {
+            detail = status(c.status);
+          }
           
           return `
           <tr>
@@ -477,11 +635,7 @@ function renderReport() {
             </td>
             <td>${srv}</td>
             <td><b>SAR ${Number(c.amount || 0).toFixed(2)}</b></td>
-            <td>
-              ${c.status === 'Signed' 
-                ? `<b>${esc(c.receiver)}</b><br>${c.signature ? `<img src="${c.signature}" class="sig-img">` : 'No signature image'}` 
-                : status(c.status)}
-            </td>
+            <td>${detail}</td>
             <td><button class="secondary" onclick="printSingleRecord('${c.id}')">🖨️ Print</button></td>
           </tr>`}).join('')}
       </tbody>
@@ -493,6 +647,7 @@ function printFullReport() {
   if (filteredReportCases.length === 0) { alert("No records to print."); return; }
 
   const clinicFilter = document.getElementById('reportClinic').value || 'All Clinics';
+  const statusFilter = document.getElementById('reportStatus').value;
   const type = document.getElementById('reportDateType').value;
   let dateLabel = '';
   
@@ -506,6 +661,15 @@ function printFullReport() {
     let srv = '';
     if(c.services && c.services.length > 0) srv = c.services.map(s => `${esc(s.name)} (x${s.qty})`).join('<br>');
     
+    let detail = '';
+    if (c.status === 'Signed') {
+      detail = `<div style="font-size:12px;font-weight:bold">${esc(c.receiver)}</div>${c.signature ? `<img src="${c.signature}" style="max-width:80px;max-height:35px">` : ''}`;
+    } else if (c.status === 'Issue Reported') {
+      detail = `<span style="color:#a52b2b">${esc(c.reason)}</span><br>${esc(c.notes)}`;
+    } else {
+      detail = '<span style="color:#946200">Pending</span>';
+    }
+    
     return `
     <tr>
       <td>${esc((c.signedAt || c.scheduled || '').slice(0, 10))}</td>
@@ -513,16 +677,12 @@ function printFullReport() {
       <td><b>${esc(c.patient)}</b><br>F: ${esc(c.file)} | J: ${esc(c.job)}</td>
       <td>${srv}</td>
       <td>SAR ${Number(c.amount || 0).toFixed(2)}</td>
-      <td style="text-align:center">
-        ${c.status === 'Signed' 
-          ? `<div style="font-size:12px;font-weight:bold">${esc(c.receiver)}</div>${c.signature ? `<img src="${c.signature}" style="max-width:80px;max-height:35px">` : ''}` 
-          : '<span style="color:#946200">'+esc(c.status)+'</span>'}
-      </td>
+      <td style="text-align:center">${detail}</td>
     </tr>`}).join('');
 
   const w = window.open('', '_blank');
   w.document.write(`
-    <html><head><title>Delivery Report</title>
+    <html><head><title>${statusFilter} Delivery Report</title>
     <style>
       body { font-family: Arial, sans-serif; padding: 20px; }
       h1 { color: #173b60; text-align: center; margin-bottom: 5px; }
@@ -535,10 +695,10 @@ function printFullReport() {
     </style>
     </head><body>
       <h1>${esc(db.brand)}</h1>
-      <p class="meta"><b>Delivery Report</b> | Clinic: ${esc(clinicFilter)} | Date: ${esc(dateLabel)}</p>
+      <p class="meta"><b>${statusFilter} Delivery Report</b> | Clinic: ${esc(clinicFilter)} | Date: ${esc(dateLabel)}</p>
       <table>
         <thead>
-          <tr><th>Date</th><th>Clinic / Dr</th><th>Patient / Ref</th><th>Services</th><th>Amount</th><th>Receiver Sign</th></tr>
+          <tr><th>Date</th><th>Clinic / Dr</th><th>Patient / Ref</th><th>Services</th><th>Amount</th><th>Details / Sign</th></tr>
         </thead>
         <tbody>${tableRows}</tbody>
       </table>
@@ -582,12 +742,13 @@ function printSingleRecord(id) {
       <div class="invoice">
         <h2>${esc(db.brand)}</h2>
         <table>
+          <tr><td>Status</td><td>${status(c.status)}</td></tr>
           <tr><td>Clinic Name</td><td>${esc(c.clinic)}</td></tr>
           <tr><td>Dr Name</td><td>${esc(c.doctor)}</td></tr>
           <tr><td>Patient Name</td><td>${esc(c.patient)}</td></tr>
           <tr><td>Job Order</td><td>${esc(c.job)}</td></tr>
           <tr><td>File Number</td><td>${esc(c.file)}</td></tr>
-          <tr><td>Delivery Date</td><td>${esc((c.signedAt || c.scheduled || '').slice(0, 10))}</td></tr>
+          <tr><td>Date</td><td>${esc((c.signedAt || c.scheduled || '').slice(0, 10))}</td></tr>
         </table>
         
         <table style="margin-top:20px;">
@@ -599,8 +760,12 @@ function printSingleRecord(id) {
         <div class="totals">Grand Total: SAR ${Number(c.amount || 0).toFixed(2)}</div>
         
         <div class="signature-box">
-          <div class="sig-label">Receiver Name: <b>${esc(c.receiver || 'N/A')}</b></div>
-          ${c.signature ? `<img src="${c.signature}">` : '<div style="color:#a52b2b;font-size:12px">No signature provided</div>'}
+          ${c.status === 'Signed' 
+            ? `<div class="sig-label">Receiver Name: <b>${esc(c.receiver)}</b></div>
+               ${c.signature ? `<img src="${c.signature}">` : '<div style="color:#a52b2b;font-size:12px">No signature provided</div>'}`
+            : c.status === 'Issue Reported'
+              ? `<div style="color:#a52b2b;font-weight:bold">Issue: ${esc(c.reason)}</div><div>${esc(c.notes)}</div>`
+              : `<div style="color:#946200;font-weight:bold">Status: Pending Delivery</div>`}
         </div>
       </div>
       <script>window.onload = () => window.print();<\/script>
@@ -703,7 +868,7 @@ function addCase() {
   
   if (!clinic || !patient || !job || !fileNo) return alert('Clinic, Patient, Job Order, and File No are required.');
 
-  const rows = document.querySelectorAll('.service-row');
+  const rows = document.querySelectorAll('#servicesContainer .service-row');
   let services = [];
   let grandTotal = 0;
 
@@ -740,30 +905,6 @@ function addCase() {
   renderCaseManager();
   updateUnsavedBanner();
   alert('Case added! Remember to click "Save changes" below.');
-}
-
-function editCase(id) {
-  const w = getWorking();
-  const c = w.cases.find(x => x.id === id);
-  if (!c) return;
-
-  const newPatient = prompt("Edit Patient Name:", c.patient);
-  if (newPatient === null) return;
-  const newDoctor = prompt("Edit Doctor Name:", c.doctor || '');
-  if (newDoctor === null) return;
-  const newJob = prompt("Edit Job Order:", c.job || '');
-  if (newJob === null) return;
-  const newFile = prompt("Edit File Number (Barcode):", c.file || '');
-  if (newFile === null) return;
-  
-  c.patient = newPatient.trim() || c.patient;
-  c.doctor = newDoctor.trim();
-  c.job = newJob.trim();
-  if (newFile.trim()) { c.file = newFile.trim(); c.qrData = newFile.trim(); }
-
-  renderCaseManager();
-  updateUnsavedBanner();
-  alert('Case updated! Remember to click "Save changes" below.');
 }
 
 function deleteCase(id) {
@@ -826,7 +967,6 @@ function loadAvatar(e) {
   if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
 }
 
-/* 🌟 NEW: SAVE PINS 🌟 */
 function savePins() {
   const newAdmin = document.getElementById('newAdminPin').value.trim();
   const newDriver = document.getElementById('newDriverPin').value.trim();

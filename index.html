@@ -23,7 +23,7 @@
 <!-- LOGIN -->
 <div class="card no-print" id="loginCard">
   <h2 style="margin-top:0">Welcome to CUSP</h2>
-  <p class="muted"></p>
+  <p class="muted">Demo PINs: Admin 1234 · Driver 1111</p>
   <div class="grid">
     <div>
       <label>Access type</label>
@@ -60,15 +60,12 @@
           <p class="muted">All pending cases are shown below. Once submitted, they will disappear.</p>
         </div>
       </div>
-
       <div style="margin-bottom:15px">
         <input id="driverSearch" placeholder="🔍 Search by Patient, File No, or Job Order..." oninput="renderDriver()">
       </div>
-
       <div id="driverCases"></div>
     </div>
 
-    <!-- BARCODE SCANNER -->
     <div class="card">
       <h3 style="margin-top:0">Scan Barcode (Optional)</h3>
       <div class="row">
@@ -77,7 +74,6 @@
       </div>
       <div id="reader" class="hidden"></div>
       <p class="muted" id="scanStatus" style="margin-top:10px">Camera is off.</p>
-      
       <hr style="border:0;border-top:1px solid var(--line);margin:15px 0">
       <label>Or type Barcode manually:</label>
       <div class="row">
@@ -86,7 +82,6 @@
       </div>
     </div>
 
-    <!-- SELECTED CASE -->
     <div class="card" id="casePanel" style="border: 2px solid var(--accent)">
       <h3 style="margin-top:0">Selected case details</h3>
       <p class="muted">Choose a case above or scan a barcode to see details and confirm delivery.</p>
@@ -97,16 +92,25 @@
   <section id="adminTab" class="hidden">
     <div class="card">
       <h2 style="margin-top:0">Admin Dashboard</h2>
+      <p class="muted">Click any box below to filter the records table.</p>
       <div class="stats">
-        <div class="stat"><b id="totalCases">0</b><span class="muted">All cases</span></div>
-        <div class="stat"><b id="signedCases">0</b><span class="muted">Signed</span></div>
-        <div class="stat"><b id="issueCases">0</b><span class="muted">Issues</span></div>
-        <div class="stat"><b id="pendingCases">0</b><span class="muted">Pending</span></div>
+        <div class="stat clickable active" id="stat-all" onclick="filterAdmin('all')">
+          <b id="totalCases">0</b><span class="muted">All cases</span>
+        </div>
+        <div class="stat clickable" id="stat-signed" onclick="filterAdmin('Signed')">
+          <b id="signedCases">0</b><span class="muted">Signed</span>
+        </div>
+        <div class="stat clickable" id="stat-issue" onclick="filterAdmin('Issue Reported')">
+          <b id="issueCases">0</b><span class="muted">Issues</span>
+        </div>
+        <div class="stat clickable" id="stat-pending" onclick="filterAdmin('Pending')">
+          <b id="pendingCases">0</b><span class="muted">Pending</span>
+        </div>
       </div>
     </div>
 
     <div class="card">
-      <h3>All Delivery Records</h3>
+      <h3 id="adminRecordsTitle" style="color:var(--brand)">All Delivery Records</h3>
       <div style="overflow:auto" id="adminRecords"></div>
     </div>
 
@@ -135,18 +139,58 @@
       <div id="clinicManageList" style="margin-top:12px"></div>
     </div>
 
-    <div class="card">
+    <!-- MANAGE CASES (AND EDIT FORM) -->
+    <div class="card" id="caseManagerCard">
       <div class="row" style="justify-content:space-between;align-items:center">
-        <h3 style="margin:0">Manage cases</h3>
+        <h3 style="margin:0" id="manageCasesTitle">Manage cases</h3>
         <button class="save-btn" onclick="saveAllChanges()">Save case changes</button>
       </div>
+      
+      <!-- Standard List -->
       <div id="caseManageList" style="margin-top:12px"></div>
+      
+      <!-- FULL EDIT FORM (Hidden by default) -->
+      <div id="editCaseForm" class="hidden" style="margin-top:15px; padding:20px; border:2px solid var(--accent); border-radius:8px; background:#f8fafc;">
+        <h3 style="margin-top:0; color:var(--accent)">✏️ Editing Case</h3>
+        <input type="hidden" id="editCaseId">
+        
+        <div class="grid">
+          <div><label>Clinic</label><select id="editCaseClinic"></select></div>
+          <div><label>Patient name</label><input id="editPatient"></div>
+          <div><label>Doctor</label><input id="editDoctor"></div>
+          <div><label>Job order</label><input id="editJob"></div>
+          <div><label>File number (Barcode #)</label><input id="editFile"></div>
+          <div>
+            <label>Status</label>
+            <select id="editStatus">
+              <option value="Pending">Pending</option>
+              <option value="Signed">Signed</option>
+              <option value="Issue Reported">Issue Reported</option>
+            </select>
+          </div>
+          <div><label>Scheduled delivery date</label><input id="editDate" type="date"></div>
+        </div>
+
+        <h4 style="margin-top:20px;margin-bottom:10px;color:var(--brand)">Services List</h4>
+        <div id="editServicesContainer"></div>
+        <p style="margin-top:10px">
+          <button class="secondary" onclick="addEditServiceRow()">+ Add Another Service</button>
+        </p>
+
+        <div style="margin-top:15px;padding:15px;background:#e9eff5;border-radius:8px;text-align:right;font-size:16px;font-weight:bold">
+          Grand Total: SAR <span id="editGrandTotalDisplay">0.00</span>
+        </div>
+
+        <p style="margin-top:15px">
+          <button class="save-btn" onclick="saveEditedCase()">Save Changes to Case</button>
+          <button class="secondary" onclick="cancelEdit()">Cancel</button>
+        </p>
+      </div>
     </div>
 
     <!-- ADD CASE WITH MULTIPLE SERVICES -->
     <div class="card">
       <h3 style="margin-top:0">Add new case</h3>
-      
       <div class="grid">
         <div><label>Clinic</label><select id="caseClinic"></select></div>
         <div><label>Patient name</label><input id="patient" placeholder="Patient"></div>
@@ -155,18 +199,14 @@
         <div><label>File number (Barcode #)</label><input id="file" placeholder="e.g. 1048545"></div>
         <div><label>Scheduled delivery date</label><input id="caseDate" type="date"></div>
       </div>
-
       <h4 style="margin-top:20px;margin-bottom:10px;color:var(--brand)">Services List</h4>
       <div id="servicesContainer"></div>
-      
       <p style="margin-top:10px">
         <button class="secondary" onclick="addServiceRow()">+ Add Another Service</button>
       </p>
-
       <div style="margin-top:15px;padding:15px;background:#e9eff5;border-radius:8px;text-align:right;font-size:16px;font-weight:bold">
         Grand Total: SAR <span id="grandTotalDisplay">0.00</span>
       </div>
-
       <p style="margin-top:15px"><button class="save-btn" onclick="addCase()">Add case & Generate Barcode</button></p>
     </div>
   </section>
@@ -175,11 +215,20 @@
   <section id="reportsTab" class="hidden">
     <div class="card no-print">
       <h2 style="margin-top:0">Generate Reports</h2>
+      <p class="muted">Select a status and date to filter the records.</p>
       <div class="grid">
         <div>
           <label>Select Clinic</label>
           <select id="reportClinic" onchange="renderReport()">
             <option value="">All Clinics</option>
+          </select>
+        </div>
+        <div>
+          <label>Filter Status</label>
+          <select id="reportStatus" onchange="renderReport()">
+            <option value="Signed">Signed (Delivered)</option>
+            <option value="Pending">Pending</option>
+            <option value="Issue Reported">Issue Reported</option>
           </select>
         </div>
         <div>
@@ -204,7 +253,7 @@
 
     <div class="card">
       <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:15px">
-        <h3 style="margin:0">Delivery Records</h3>
+        <h3 style="margin:0" id="reportTitle">Delivery Records</h3>
         <button class="save-btn" onclick="printFullReport()">🖨️ Print All</button>
       </div>
       <div style="overflow:auto" id="reportRecords">
@@ -233,19 +282,10 @@
       </p>
 
       <hr style="border:0;border-top:1px solid var(--line);margin:25px 0">
-
-      <!-- NEW ACCESS SETTINGS -->
       <h3 style="margin-top:0">Access Settings (PINs)</h3>
-      <p class="muted">Change the login PINs for the Admin and Driver.</p>
       <div class="grid">
-        <div>
-          <label>Change Admin PIN</label>
-          <input id="newAdminPin" type="password" inputmode="numeric" placeholder="Enter new Admin PIN">
-        </div>
-        <div>
-          <label>Change Driver PIN</label>
-          <input id="newDriverPin" type="password" inputmode="numeric" placeholder="Enter new Driver PIN">
-        </div>
+        <div><label>Change Admin PIN</label><input id="newAdminPin" type="password" inputmode="numeric" placeholder="Enter new Admin PIN"></div>
+        <div><label>Change Driver PIN</label><input id="newDriverPin" type="password" inputmode="numeric" placeholder="Enter new Driver PIN"></div>
       </div>
       <p class="row" style="margin-top:15px">
         <button class="save-btn" onclick="savePins()">Save New PINs</button>
