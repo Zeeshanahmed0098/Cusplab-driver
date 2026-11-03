@@ -60,7 +60,9 @@ function login() {
   try {
     const r = document.getElementById('role').value;
     const p = document.getElementById('pin').value.trim();
-    const expected = r === 'admin' ? '1234' : '1111';
+    
+    // Checks against the passwords fetched from the cloud
+    const expected = r === 'admin' ? db.adminPin : db.driverPin;
     
     if (p !== expected) {
       document.getElementById('loginError').textContent = 'Incorrect PIN.';
@@ -101,8 +103,16 @@ function showTab(id, btn) {
   fetchCases(); 
 }
 
-function init() {
+async function init() {
   applyAppearance();
+  
+  // Fetch the latest PINs from the cloud Settings table
+  const { data, error } = await supabaseClient.from('Settings').select('*').eq('id', 1).single();
+  if (data) {
+    db.adminPin = data.admin_pin;
+    db.driverPin = data.driver_pin;
+  }
+
   document.getElementById('brandInput').value = db.brand;
   document.getElementById('subtitleInput').value = db.subtitle;
   
@@ -926,7 +936,7 @@ function loadAvatar(e) {
   if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
 }
 
-function savePins() {
+async function savePins() {
   const newAdmin = document.getElementById('newAdminPin').value.trim();
   const newDriver = document.getElementById('newDriverPin').value.trim();
   
@@ -935,16 +945,28 @@ function savePins() {
     return;
   }
   
+  const updates = {};
+  if (newAdmin) updates.admin_pin = newAdmin;
+  if (newDriver) updates.driver_pin = newDriver;
+
+  // Save new PINs to the Supabase cloud database
+  const { error } = await supabaseClient.from('Settings').update(updates).eq('id', 1);
+  
+  if (error) {
+    alert("Error saving PINs: " + error.message);
+    return;
+  }
+  
   if (newAdmin) db.adminPin = newAdmin;
   if (newDriver) db.driverPin = newDriver;
   
   document.getElementById('newAdminPin').value = '';
   document.getElementById('newDriverPin').value = '';
-  alert('✅ PINs updated successfully!');
+  alert('✅ PINs updated successfully in the cloud!');
 }
 
 // ==========================================
-// 4. INITIALIZE BUTTON (THIS WAS MISSING!)
+// 4. INITIALIZE BUTTON
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('loginBtn').addEventListener('click', login);
