@@ -1,0 +1,80 @@
+:root {
+  --brand: #173b60;
+  --accent: #2875ad;
+  --bg: #f2f5f9;
+  --surface: #fff;
+  --ink: #172536;
+  --muted: #65758a;
+  --line: #dce4ed;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 Arial, sans-serif; }
+
+header { background: var(--brand); color: white; padding: 16px max(14px, calc((100% - 1180px)/2)); display: flex; align-items: center; gap: 13px; }
+header img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: #ffffff30; }
+header h1 { font-size: 20px; margin: 0; }
+header p  { font-size: 12px; margin: 3px 0 0; color: #e0eaf4; }
+
+main { max-width: 1180px; margin: 18px auto; padding: 0 14px 40px; }
+nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+
+button { border: 0; border-radius: 8px; padding: 10px 14px; background: var(--accent); color: white; font-weight: 700; cursor: pointer; }
+button.secondary { background: #e7edf4; color: var(--brand); }
+button.danger    { background: #a52b2b; }
+button.save-btn  { background: #16794b; }
+button.save-btn:hover { background: #12623c; }
+button.primary-save { background: #16794b; }
+.tab.active { background: var(--brand); color: white; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 15px; margin: 12px 0; }
+.unsaved-banner { background: #fff5e1; border-color: #f0c46b; }
+.unsaved-banner b { color: #946200; }
+
+.grid  { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.stat { background: color-mix(in srgb, var(--accent) 8%, white); border-radius: 9px; padding: 12px; }
+.stat b { font-size: 24px; display: block; }
+
+label { display: block; font-size: 13px; font-weight: 700; margin: 9px 0 4px; }
+input, select, textarea { width: 100%; padding: 10px; border: 1px solid #cbd6e2; border-radius: 8px; background: white; color: #172536; font: inherit; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: #f3f6fa; }
+
+.muted { color: var(--muted); font-size: 13px; }
+.pill { display: inline-block; border-radius: 99px; padding: 3px 9px; font-size: 12px; background: #e9eff5; color: #33485d; }
+.pill.signed { background: #e2f4e9; color: #16794b; }
+.pill.issue  { background: #fff1d6; color: #946200; }
+
+.case { border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin: 8px 0; background: white; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+.case:hover { border-color: var(--accent); }
+.case.selected { outline: 2px solid var(--accent); }
+
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row > * { flex: 1; }
+.hidden { display: none !important; }
+.profile { width: 74px; height: 74px; border-radius: 50%; object-fit: cover; border: 2px solid var(--line); }
+
+.manage-row { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.manage-row.dirty { background: #fff5e1; border-radius: 6px; }
+.manage-row input { flex: 1; min-width: 180px; }
+
+#reader { width: 100%; max-width: 500px; margin: 15px auto; border-radius: 12px; overflow: hidden; border: 2px solid var(--brand); }
+#reader video { width: 100% !important; }
+
+.sig-img { max-width: 100px; max-height: 40px; border: 1px solid #ccc; display: block; }
+
+.service-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.service-row input { flex: 1; }
+.service-row input.service-name { flex: 2; }
+.service-row input.service-total { flex: 1; background: #f8fafc; font-weight: bold; }
+.service-row .btn-remove { flex: 0 0 auto; background: #a52b2b; padding: 10px 15px; }
+
+footer { text-align: center; color: var(--muted); font-size: 12px; margin: 24px 0; }
+@media(max-width:700px){ 
+  .grid, .stats { grid-template-columns: 1fr 1fr; } 
+  .service-row { flex-wrap: wrap; }
+  .service-row input.service-name { flex: 100%; }
+}

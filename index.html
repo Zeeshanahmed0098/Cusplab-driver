@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CUSP Delivery System</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <img id="headerAvatar" alt="Profile">
+  <div>
+    <h1 id="brandTitle">CUSP DENTAL LABORATORY</h1>
+    <p id="headerSubtitle">Delivery management system</p>
+  </div>
+</header>
+
+<main>
+
+<!-- LOGIN -->
+<div class="card no-print" id="loginCard">
+  <h2 style="margin-top:0">Welcome to CUSP</h2>
+  <p class="muted"></p>
+  <div class="grid">
+    <div>
+      <label>Access type</label>
+      <select id="role">
+        <option value="driver">Driver</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div>
+      <label>PIN</label>
+      <input id="pin" type="password" inputmode="numeric" placeholder="Enter PIN">
+    </div>
+  </div>
+  <p><button onclick="login()">Open system</button></p>
+  <p id="loginError" class="muted"></p>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <nav class="no-print">
+    <button class="tab active" data-tab="driverTab" onclick="showTab('driverTab',this)">Driver App</button>
+    <button class="tab" data-tab="adminTab" onclick="showTab('adminTab',this)">Admin Dashboard</button>
+    <button class="tab" data-tab="reportsTab" onclick="showTab('reportsTab',this)">Reports</button>
+    <button class="tab" data-tab="settingsTab" onclick="showTab('settingsTab',this)">Profile & Settings</button>
+    <button class="secondary" onclick="logout()">Log out</button>
+  </nav>
+
+  <!-- =================== DRIVER TAB =================== -->
+  <section id="driverTab">
+    <div class="card">
+      <div class="row mobile-stack" style="justify-content:space-between;align-items:center;margin-bottom:15px">
+        <div>
+          <h2 style="margin:0">Pending Deliveries</h2>
+          <p class="muted">All pending cases are shown below. Once submitted, they will disappear.</p>
+        </div>
+      </div>
+
+      <div style="margin-bottom:15px">
+        <input id="driverSearch" placeholder="🔍 Search by Patient, File No, or Job Order..." oninput="renderDriver()">
+      </div>
+
+      <div id="driverCases"></div>
+    </div>
+
+    <!-- BARCODE SCANNER -->
+    <div class="card">
+      <h3 style="margin-top:0">Scan Barcode (Optional)</h3>
+      <div class="row">
+        <button onclick="startScanner()" id="startScanBtn">📷 Open Camera</button>
+        <button class="secondary hidden" onclick="stopScanner()" id="stopScanBtn">Stop Camera</button>
+      </div>
+      <div id="reader" class="hidden"></div>
+      <p class="muted" id="scanStatus" style="margin-top:10px">Camera is off.</p>
+      
+      <hr style="border:0;border-top:1px solid var(--line);margin:15px 0">
+      <label>Or type Barcode manually:</label>
+      <div class="row">
+        <input id="manualBarcode" placeholder="e.g. 1048545" onkeydown="if(event.key==='Enter') manualLookup()">
+        <button class="secondary" onclick="manualLookup()">Find</button>
+      </div>
+    </div>
+
+    <!-- SELECTED CASE -->
+    <div class="card" id="casePanel" style="border: 2px solid var(--accent)">
+      <h3 style="margin-top:0">Selected case details</h3>
+      <p class="muted">Choose a case above or scan a barcode to see details and confirm delivery.</p>
+    </div>
+  </section>
+
+  <!-- =================== ADMIN TAB =================== -->
+  <section id="adminTab" class="hidden">
+    <div class="card">
+      <h2 style="margin-top:0">Admin Dashboard</h2>
+      <div class="stats">
+        <div class="stat"><b id="totalCases">0</b><span class="muted">All cases</span></div>
+        <div class="stat"><b id="signedCases">0</b><span class="muted">Signed</span></div>
+        <div class="stat"><b id="issueCases">0</b><span class="muted">Issues</span></div>
+        <div class="stat"><b id="pendingCases">0</b><span class="muted">Pending</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>All Delivery Records</h3>
+      <div style="overflow:auto" id="adminRecords"></div>
+    </div>
+
+    <div class="card unsaved-banner hidden" id="unsavedBanner">
+      <div class="row">
+        <div style="flex:2">
+          <b>⚠ You have unsaved changes.</b>
+          <p class="muted" style="margin:4px 0 0">Click <b>Save changes</b> to apply them everywhere.</p>
+        </div>
+        <div style="flex:0 0 auto;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="secondary" onclick="discardChanges()">Discard</button>
+          <button class="primary-save" onclick="saveAllChanges()">Save changes</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Manage clinics</h3>
+        <button class="save-btn" onclick="saveAllChanges()">Save clinic changes</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <input id="newClinic" placeholder="New clinic name">
+        <button onclick="addClinic()">Add clinic</button>
+      </div>
+      <div id="clinicManageList" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Manage cases</h3>
+        <button class="save-btn" onclick="saveAllChanges()">Save case changes</button>
+      </div>
+      <div id="caseManageList" style="margin-top:12px"></div>
+    </div>
+
+    <!-- ADD CASE WITH MULTIPLE SERVICES -->
+    <div class="card">
+      <h3 style="margin-top:0">Add new case</h3>
+      
+      <div class="grid">
+        <div><label>Clinic</label><select id="caseClinic"></select></div>
+        <div><label>Patient name</label><input id="patient" placeholder="Patient"></div>
+        <div><label>Doctor</label><input id="doctor" placeholder="Doctor"></div>
+        <div><label>Job order</label><input id="job" placeholder="JO-0001"></div>
+        <div><label>File number (Barcode #)</label><input id="file" placeholder="e.g. 1048545"></div>
+        <div><label>Scheduled delivery date</label><input id="caseDate" type="date"></div>
+      </div>
+
+      <h4 style="margin-top:20px;margin-bottom:10px;color:var(--brand)">Services List</h4>
+      <div id="servicesContainer"></div>
+      
+      <p style="margin-top:10px">
+        <button class="secondary" onclick="addServiceRow()">+ Add Another Service</button>
+      </p>
+
+      <div style="margin-top:15px;padding:15px;background:#e9eff5;border-radius:8px;text-align:right;font-size:16px;font-weight:bold">
+        Grand Total: SAR <span id="grandTotalDisplay">0.00</span>
+      </div>
+
+      <p style="margin-top:15px"><button class="save-btn" onclick="addCase()">Add case & Generate Barcode</button></p>
+    </div>
+  </section>
+
+  <!-- =================== REPORTS TAB =================== -->
+  <section id="reportsTab" class="hidden">
+    <div class="card no-print">
+      <h2 style="margin-top:0">Generate Reports</h2>
+      <div class="grid">
+        <div>
+          <label>Select Clinic</label>
+          <select id="reportClinic" onchange="renderReport()">
+            <option value="">All Clinics</option>
+          </select>
+        </div>
+        <div>
+          <label>Filter Date Type</label>
+          <select id="reportDateType" onchange="toggleReportDates()">
+            <option value="single">Single Day</option>
+            <option value="range">Date Range</option>
+          </select>
+        </div>
+        <div id="singleDateDiv">
+          <label>Select Date</label>
+          <input type="date" id="reportSingleDate" onchange="renderReport()">
+        </div>
+        <div id="rangeDateDiv" class="hidden">
+          <label>From Date</label>
+          <input type="date" id="reportStartDate" onchange="renderReport()">
+          <label style="margin-top:10px">To Date</label>
+          <input type="date" id="reportEndDate" onchange="renderReport()">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:15px">
+        <h3 style="margin:0">Delivery Records</h3>
+        <button class="save-btn" onclick="printFullReport()">🖨️ Print All</button>
+      </div>
+      <div style="overflow:auto" id="reportRecords">
+        <p class="muted">Select filters above to generate report.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =================== SETTINGS TAB =================== -->
+  <section id="settingsTab" class="hidden">
+    <div class="card">
+      <h2 style="margin-top:0">Profile & Customization</h2>
+      <div class="row mobile-stack">
+        <img id="profilePreview" class="profile" alt="Profile preview">
+        <div>
+          <label>Profile / laboratory logo image</label>
+          <input type="file" id="avatarFile" accept="image/*" onchange="loadAvatar(event)">
+        </div>
+      </div>
+      <label>Laboratory / app name</label>
+      <input id="brandInput" placeholder="CUSP DENTAL LABORATORY">
+      <label>Main page subtitle</label>
+      <input id="subtitleInput" placeholder="Delivery management system">
+      <p class="row" style="margin-top:15px">
+        <button onclick="saveAppearance()">Save appearance</button>
+      </p>
+
+      <hr style="border:0;border-top:1px solid var(--line);margin:25px 0">
+
+      <!-- NEW ACCESS SETTINGS -->
+      <h3 style="margin-top:0">Access Settings (PINs)</h3>
+      <p class="muted">Change the login PINs for the Admin and Driver.</p>
+      <div class="grid">
+        <div>
+          <label>Change Admin PIN</label>
+          <input id="newAdminPin" type="password" inputmode="numeric" placeholder="Enter new Admin PIN">
+        </div>
+        <div>
+          <label>Change Driver PIN</label>
+          <input id="newDriverPin" type="password" inputmode="numeric" placeholder="Enter new Driver PIN">
+        </div>
+      </div>
+      <p class="row" style="margin-top:15px">
+        <button class="save-btn" onclick="savePins()">Save New PINs</button>
+      </p>
+    </div>
+  </section>
+</div>
+
+<footer>Customizable prototype · Demo data stays in this browser only.</footer>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
