@@ -58,8 +58,7 @@ function status(s) {
 
 async function login() {
   try {
-    // Fetch the latest passwords from the cloud before checking
-    const { data, error } = await supabaseClient.from('Settings').select('*').eq('id', 1).single();
+    const { data } = await supabaseClient.from('Settings').select('*').eq('id', 1).single();
     if (data) {
       db.adminPin = data.admin_pin;
       db.driverPin = data.driver_pin;
@@ -110,7 +109,6 @@ function showTab(id, btn) {
 
 async function init() {
   applyAppearance();
-  
   document.getElementById('brandInput').value = db.brand;
   document.getElementById('subtitleInput').value = db.subtitle;
   
@@ -912,6 +910,7 @@ function printSticker(id) {
         border-bottom: 1px dashed #000;
         padding-bottom: 5px;
       }
+      svg { max-width: 100%; height: 60px; margin: 10px 0; display: block; margin-left: auto; margin-right: auto; }
       .row { 
         margin: 8px 0; 
         font-size: 14px; 
@@ -936,14 +935,31 @@ function printSticker(id) {
         body { padding: 0; }
       }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"><\/script>
     </head><body>
       <div class="sticker">
-        <h2>${esc(c.clinic)}</h2>
+        <h2>CUSP DENTAL LABORATORY</h2>
+        <svg id="barcode"></svg>
+        <div class="row"><b>Clinic:</b> ${esc(c.clinic)}</div>
         <div class="row"><b>Doctor:</b> ${esc(c.doctor)}</div>
         <div class="row"><b>Patient:</b> ${esc(c.patient)}</div>
         <div class="row"><b>Job No:</b> ${esc(c.job)}</div>
       </div>
       <button onclick="window.print()">🖨️ Print Sticker</button>
+      <script>
+        setTimeout(() => {
+          if (typeof JsBarcode !== 'undefined') {
+            JsBarcode("#barcode", "${esc(c.file)}", {
+              format: "CODE128",
+              width: 2,
+              height: 60,
+              displayValue: false
+            });
+          } else {
+            alert("Barcode library failed to load.");
+          }
+        }, 500);
+      <\/script>
     </body></html>
   `);
   w.document.close();
