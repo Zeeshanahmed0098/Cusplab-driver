@@ -9,7 +9,7 @@ const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const seed = {
   brand: 'CUSP DENTAL LABORATORY',
-  subtitle: 'Delivery management system',
+  subtitle: 'Smart Case Tracking & Delivery',
   adminPin: '1234',
   driverPin: '1111',
   clinics: ['Samaya Bin Hamran BH', 'Pearl Clinic', 'ABC Dental Clinic']
@@ -108,9 +108,22 @@ function showTab(id, btn) {
 }
 
 async function init() {
+  // Fetch everything (passwords, logo, brand) from Supabase
+  const { data, error } = await supabaseClient.from('Settings').select('*').eq('id', 1).single();
+  if (data) {
+    db.adminPin = data.admin_pin;
+    db.driverPin = data.driver_pin;
+    db.brand = data.brand || db.brand;
+    db.subtitle = data.subtitle || db.subtitle;
+    db.avatar = data.avatar || '';
+  }
+
   applyAppearance();
   document.getElementById('brandInput').value = db.brand;
   document.getElementById('subtitleInput').value = db.subtitle;
+  
+  const previewImg = document.getElementById('profilePreview');
+  if (previewImg) previewImg.src = db.avatar;
   
   const today = new Date().toISOString().slice(0, 10);
   if (!document.getElementById('caseDate').value) document.getElementById('caseDate').value = today;
@@ -128,6 +141,12 @@ async function init() {
 function applyAppearance() {
   document.getElementById('brandTitle').textContent = db.brand;
   document.getElementById('headerSubtitle').textContent = db.subtitle;
+  
+  const headerImg = document.getElementById('headerAvatar');
+  if (headerImg) headerImg.src = db.avatar || '';
+
+  const previewImg = document.getElementById('profilePreview');
+  if (previewImg) previewImg.src = db.avatar || '';
 }
 
 function fillClinics(source) {
@@ -965,11 +984,28 @@ function printSticker(id) {
   w.document.close();
 }
 
-function saveAppearance() {
-  db.brand = document.getElementById('brandInput').value.trim() || 'CUSP DENTAL LABORATORY';
-  db.subtitle = document.getElementById('subtitleInput').value.trim();
+async function saveAppearance() {
+  const newBrand = document.getElementById('brandInput').value.trim() || 'CUSP DENTAL LABORATORY';
+  const newSubtitle = document.getElementById('subtitleInput').value.trim();
+  
+  // Save to Supabase
+  const updates = { 
+    brand: newBrand, 
+    subtitle: newSubtitle, 
+    avatar: db.avatar 
+  };
+
+  const { error } = await supabaseClient.from('Settings').update(updates).eq('id', 1);
+  
+  if (error) {
+    alert("Error saving appearance: " + error.message);
+    return;
+  }
+
+  db.brand = newBrand;
+  db.subtitle = newSubtitle;
   applyAppearance();
-  alert('Appearance saved.');
+  alert('✅ Appearance updated in the cloud!');
 }
 
 function loadAvatar(e) {
@@ -995,7 +1031,6 @@ async function savePins() {
   if (newAdmin) updates.admin_pin = newAdmin;
   if (newDriver) updates.driver_pin = newDriver;
 
-  // Save new PINs to the Supabase cloud database
   const { error } = await supabaseClient.from('Settings').update(updates).eq('id', 1);
   
   if (error) {
