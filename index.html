@@ -204,7 +204,11 @@
   <section id="reportsTab" class="hidden">
     <div class="card no-print">
       <h2 style="margin-top:0">Generate Reports</h2>
+      <div style="margin-bottom: 15px;">
+  <input id="reportSearch" placeholder="🔍 Search by Patient, File No, Job Order, or Doctor..." oninput="renderReport()">
+</div>
       <p class="muted">Select a status and date to filter the records.</p>
+
       <div class="grid">
         <div>
           <label>Select Clinic</label>
