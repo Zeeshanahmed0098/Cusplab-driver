@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CUSP Delivery System</title>
-<!-- Barcode Generator -->
+<!-- Barcode & PDF Libraries -->
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-<!-- Barcode Scanner -->
 <script src="https://unpkg.com/html5-qrcode"></script>
-<!-- SUPABASE LIBRARY (CRITICAL FOR MOBILE) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -129,16 +129,13 @@
       <div id="clinicManageList" style="margin-top:12px"></div>
     </div>
 
-    <!-- MANAGE CASES (AND EDIT FORM) -->
     <div class="card" id="caseManagerCard">
       <div class="row" style="justify-content:space-between;align-items:center">
         <h3 style="margin:0" id="manageCasesTitle">Manage cases</h3>
       </div>
       
-      <!-- Standard List -->
       <div id="caseManageList" style="margin-top:12px"></div>
       
-      <!-- FULL EDIT FORM -->
       <div id="editCaseForm" class="hidden" style="margin-top:15px; padding:20px; border:2px solid var(--accent); border-radius:8px; background:#f8fafc;">
         <h3 style="margin-top:0; color:var(--accent)">✏️ Editing Case</h3>
         <input type="hidden" id="editCaseId">
@@ -177,7 +174,16 @@
       </div>
     </div>
 
-    <!-- ADD CASE WITH MULTIPLE SERVICES -->
+    <!-- PDF AUTO-FILL -->
+    <div class="card" style="border: 2px solid #2875ad; background: #f0f7ff;">
+      <h3 style="margin-top:0; color: #2875ad;">Auto-Fill from Salaya PDF</h3>
+      <p class="muted">Upload the PDF. The app will read it and fill the form below so you can review it before saving.</p>
+      <input type="file" id="pdfFile" accept=".pdf" style="margin-bottom:15px; background: white;">
+      <button class="save-btn" onclick="processPDF()">Extract & Review Data</button>
+      <p class="muted" id="pdfStatus"></p>
+    </div>
+
+    <!-- ADD CASE FORM -->
     <div class="card">
       <h3 style="margin-top:0">Add new case</h3>
       <div class="grid">
@@ -187,7 +193,13 @@
         <div><label>Job order</label><input id="job" placeholder="JO-0001"></div>
         <div><label>File number (Barcode #)</label><input id="file" placeholder="e.g. 1048545"></div>
         <div><label>Scheduled delivery date</label><input id="caseDate" type="date"></div>
+        
+        <!-- NEW FIELDS FROM SALAYA -->
+        <div><label>Tooth Color</label><input id="toothColor" placeholder="e.g. A2"></div>
+        <div><label>Teeth No</label><input id="teethNo" placeholder="e.g. 14, 15"></div>
+        <div style="grid-column: span 2;"><label>Comments</label><input id="comments" placeholder="Bite block"></div>
       </div>
+
       <h4 style="margin-top:20px;margin-bottom:10px;color:var(--brand)">Services List</h4>
       <div id="servicesContainer"></div>
       <p style="margin-top:10px">
@@ -196,7 +208,7 @@
       <div style="margin-top:15px;padding:15px;background:#e9eff5;border-radius:8px;text-align:right;font-size:16px;font-weight:bold">
         Grand Total: SAR <span id="grandTotalDisplay">0.00</span>
       </div>
-      <p style="margin-top:15px"><button class="save-btn" onclick="addCase()">Add case & Generate Barcode</button></p>
+      <p style="margin-top:15px"><button class="save-btn" onclick="addCase()">Save Case to Database</button></p>
     </div>
   </section>
 
@@ -204,10 +216,10 @@
   <section id="reportsTab" class="hidden">
     <div class="card no-print">
       <h2 style="margin-top:0">Generate Reports</h2>
+      
       <div style="margin-bottom: 15px;">
-  <input id="reportSearch" placeholder="🔍 Search by Patient, File No, Job Order, or Doctor..." oninput="renderReport()">
-</div>
-      <p class="muted">Select a status and date to filter the records.</p>
+        <input id="reportSearch" placeholder="🔍 Search by Patient, File No, Job Order, or Doctor..." oninput="renderReport()">
+      </div>
 
       <div class="grid">
         <div>
@@ -219,6 +231,7 @@
         <div>
           <label>Filter Status</label>
           <select id="reportStatus" onchange="renderReport()">
+            <option value="All">All Statuses</option>
             <option value="Signed">Signed (Delivered)</option>
             <option value="Pending">Pending</option>
             <option value="Issue Reported">Issue Reported</option>

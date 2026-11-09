@@ -108,8 +108,7 @@ function showTab(id, btn) {
 }
 
 async function init() {
-  // Fetch everything (passwords, logo, brand) from Supabase
-  const { data, error } = await supabaseClient.from('Settings').select('*').eq('id', 1).single();
+  const { data } = await supabaseClient.from('Settings').select('*').eq('id', 1).single();
   if (data) {
     db.adminPin = data.admin_pin;
     db.driverPin = data.driver_pin;
@@ -697,14 +696,22 @@ function renderReport() {
   const clinic = document.getElementById('reportClinic').value;
   const statusFilter = document.getElementById('reportStatus').value;
   const type = document.getElementById('reportDateType').value;
+  const search = (document.getElementById('reportSearch').value || '').toLowerCase();
   
   const singleDate = document.getElementById('reportSingleDate').value;
   const startDate = document.getElementById('reportStartDate').value;
   const endDate = document.getElementById('reportEndDate').value;
 
   filteredReportCases = db.cases.filter(c => {
-    if (c.status !== statusFilter) return false;
+    if (statusFilter !== 'All' && c.status !== statusFilter) return false;
     if (clinic && c.clinic !== clinic) return false;
+    
+    // Apply Search Filter
+    if (search) {
+      const matchText = [c.patient, c.file, c.job, c.doctor].join(' ').toLowerCase();
+      if (!matchText.includes(search)) return false;
+    }
+
     const caseDate = (c.signedAt || c.scheduled || '').slice(0, 10);
     if (!caseDate) return false;
     if (type === 'single') {
@@ -988,12 +995,7 @@ async function saveAppearance() {
   const newBrand = document.getElementById('brandInput').value.trim() || 'CUSP DENTAL LABORATORY';
   const newSubtitle = document.getElementById('subtitleInput').value.trim();
   
-  // Save to Supabase
-  const updates = { 
-    brand: newBrand, 
-    subtitle: newSubtitle, 
-    avatar: db.avatar 
-  };
+  const updates = { brand: newBrand, subtitle: newSubtitle, avatar: db.avatar };
 
   const { error } = await supabaseClient.from('Settings').update(updates).eq('id', 1);
   
@@ -1047,8 +1049,109 @@ async function savePins() {
 }
 
 // ==========================================
-// 4. INITIALIZE BUTTON
+// 4. PDF EXTRACTION
 // ==========================================
-document.addEventListener('DOMContentLoaded', () => {
+async function processPDF() {
+  const fileInput = document.getElementById('pdfFile');
+  if (!fileInput.files.length) return alert('Please select a PDF file first.');
+  
+  const file = fileInput.files[0];
+  const statusText = document.getElementById('pdfStatus');
+  statusText.textContent = "Reading PDF...";
+
+  const reader = new FileReader();
+  reader.onload = async function() {
+    const typedarray = new Uint8Array(this.result);
+    
+    try {
+      const pdf = await pdfjsLib.getDocument(typedarray).promise;
+      let fullText = "";
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        fullText += pageText + " ";
+      }
+
+      statusText.textContent = "Extracting data...";
+
+      const getMatch = (regex) => {
+        const match = fullText.match(regex);
+        return match ? match[1].trim() : '';
+      };
+
+      // Extract fields based on the layout
+      const clinic = getMatch(/Clinic\s+([A-Za-z0-9\s]+)/i) || 'Salaya';
+      const patient = getMatch(/Patient\s+([A-Za-z0-9\s]+)/i) || '';
+      const doctor = getMatch(/Dentist\s+([A-Za-z0-9\s\.]+)/i) || '';
+      const fileNo = getMatch(/File No\s+([0-9]+)/i) || '';
+      const jobNo = getMatch(/Job Order\s+([0-9]+)/i) || '';
+      const amountMatch = fullText.match(/SAR\s*([0-9.]+)/i);
+      const amount = amountMatch ? Number(amountMatch[1]) : 0;
+      const serviceMatch = fullText.match(/([A-Z\s]+)\s+[0-9]+\s*x\s*[0-9]+/);
+      const serviceName = serviceMatch ? serviceMatch[1].trim() : 'Dental Service';
+      
+      const dateMatch = fullText.match(/(\d{2})-(\d{2})-(\d{4})/);
+      let scheduledDate = new Date().toISOString().slice(0, 10);
+      if (dateMatch) {
+        scheduledDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+      }
+
+      // FILL THE FORM (So you can review/edit)
+      document.getElementById('patient').value = patient;
+      document.getElementById('doctor').value = doctor;
+      document.getElementById('job').value = jobNo;
+      document.getElementById('file').value = fileNo;
+      document.getElementById('caseDate').value = scheduledDate;
+      
+      // Update the Services row
+      const servicesContainer = document.getElementById('servicesContainer');
+      servicesContainer.innerHTML = '';
+      const row = document.createElement('div');
+      row.className = 'service-row';
+      row.innerHTML = `
+        <input type="text" class="service-name" value="${serviceName}">
+        <input type="number" class="service-qty" value="1" oninput="calcRowTotal(this)">
+        <input type="number" class="service-price" value="${amount}" oninput="calcRowTotal(this)">
+        <input type="number" class="service-total" value="${amount}" readonly>
+        <button class="danger btn-remove" onclick="this.parentElement.remove(); calcGrandTotal()">X</button>
+      `;
+      servicesContainer.appendChild(row);
+      calcGrandTotal();
+
+      // Try to set the clinic dropdown (if it matches)
+      const clinicDropdown = document.getElementById('caseClinic');
+      for (let i = 0; i < clinicDropdown.options.length; i++) {
+        if (clinicDropdown.options[i].value.toLowerCase().includes(clinic.toLowerCase())) {
+          clinicDropdown.selectedIndex = i;
+          break;
+        }
+      }
+
+      statusText.textContent = "Data extracted! Please review the form below and click Save.";
+      
+    } catch (error) {
+      console.error(error);
+      alert("Failed to read PDF. Make sure it's a valid file.");
+      statusText.textContent = "Error reading PDF.";
+    }
+  };
+  
+  reader.readAsArrayBuffer(file);
+}
+
+// ==========================================
+// 5. INITIALIZE BUTTON & FETCH APPEARANCE
+// ==========================================
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('loginBtn').addEventListener('click', login);
+  
+  const { data } = await supabaseClient.from('Settings').select('*').eq('id', 1).single();
+  if (data) {
+    db.brand = data.brand || db.brand;
+    db.subtitle = data.subtitle || db.subtitle;
+    db.avatar = data.avatar || '';
+    applyAppearance(); 
+  }
 });
