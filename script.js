@@ -1116,12 +1116,25 @@ async function processPDF() {
       const clinicMatch = fullText.match(/Clinic\s+(.*?)(?=\s+(?:Patient|Dentist|File No))/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      const amountMatch = fullText.match(/SAR\s*([0-9.]+)/i);
-      const amount = amountMatch ? Number(amountMatch[1]) : 0;
-
-      const serviceMatch = fullText.match(/([A-Z\s]+)\s+[0-9]+\s*x\s*[0-9]+/);
-      const serviceName = serviceMatch ? serviceMatch[1].trim() : 'Dental Service';
+      // --- NEW SMARTER SERVICE EXTRACTION ---
+      // This looks for the Service (all uppercase letters) followed by the quantity and price
+      const serviceRegex = /([A-Z\s]{3,})\s+(?:.*?)\s+(\d+)\s*x\s*(\d+(?:\.\d+)?)/;
+      const serviceMatch = fullText.match(serviceRegex);
       
+      let serviceName = 'Dental Service';
+      let qty = 1;
+      let price = 0;
+
+      if (serviceMatch) {
+        serviceName = serviceMatch[1].trim();
+        qty = Number(serviceMatch[2]) || 1;
+        price = Number(serviceMatch[3]) || 0;
+      } else {
+        // Fallback: If the main regex fails, look for the cost
+        const amountMatch = fullText.match(/SAR\s*([0-9.]+)/i);
+        price = amountMatch ? Number(amountMatch[1]) : 0;
+      }
+
       const dateMatch = fullText.match(/(\d{2})-(\d{2})-(\d{4})/);
       let scheduledDate = new Date().toISOString().slice(0, 10);
       if (dateMatch) {
@@ -1140,9 +1153,9 @@ async function processPDF() {
       row.className = 'service-row';
       row.innerHTML = `
         <input type="text" class="service-name" value="${serviceName}">
-        <input type="number" class="service-qty" value="1" oninput="calcRowTotal(this)">
-        <input type="number" class="service-price" value="${amount}" oninput="calcRowTotal(this)">
-        <input type="number" class="service-total" value="${amount}" readonly>
+        <input type="number" class="service-qty" value="${qty}" oninput="calcRowTotal(this)">
+        <input type="number" class="service-price" value="${price}" oninput="calcRowTotal(this)">
+        <input type="number" class="service-total" value="${qty * price}" readonly>
         <button class="danger btn-remove" onclick="this.parentElement.remove(); calcGrandTotal()">X</button>
       `;
       servicesContainer.appendChild(row);
@@ -1187,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     db.brand = data.brand || db.brand;
     db.subtitle = data.subtitle || db.subtitle;
     db.avatar = data.avatar || '';
-    if (data.clinics) db.clinics = data.clinics; // Load clinics
+    if (data.clinics) db.clinics = data.clinics; 
     applyAppearance(); 
   }
 });
