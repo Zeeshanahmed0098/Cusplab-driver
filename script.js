@@ -62,6 +62,7 @@ async function login() {
     if (data) {
       db.adminPin = data.admin_pin;
       db.driverPin = data.driver_pin;
+      if (data.clinics) db.clinics = data.clinics;
     }
 
     const r = document.getElementById('role').value;
@@ -115,6 +116,7 @@ async function init() {
     db.brand = data.brand || db.brand;
     db.subtitle = data.subtitle || db.subtitle;
     db.avatar = data.avatar || '';
+    if (data.clinics) db.clinics = data.clinics; 
   }
 
   applyAppearance();
@@ -579,6 +581,7 @@ function renderAdmin() {
     : '<p class="muted">No records found for this filter.</p>';
 }
 
+// --- FIXED CLINIC MANAGER ---
 function renderClinicManager() {
   const el = document.getElementById('clinicManageList');
   el.innerHTML = db.clinics.map(clinic => `
@@ -590,31 +593,54 @@ function renderClinicManager() {
   `).join('');
 }
 
-function addClinic() {
+async function saveClinicsToDB() {
+  const { error } = await supabaseClient.from('Settings').update({ clinics: db.clinics }).eq('id', 1);
+  if (error) {
+    alert("Error saving clinics: " + error.message);
+  } else {
+    alert('✅ Clinics saved to cloud!');
+    fillClinics();
+  }
+}
+
+async function addClinic() {
   const n = document.getElementById('newClinic').value.trim();
   if (!n) return;
   if (db.clinics.some(x => x.toLowerCase() === n.toLowerCase())) return alert('Already exists');
   db.clinics.push(n);
   document.getElementById('newClinic').value = '';
-  fillClinics();
   renderClinicManager();
+  await saveClinicsToDB(); 
 }
 
-function renameClinic(oldName) {
+async function renameClinic(oldName) {
   const newName = document.getElementById('clinic-input-' + oldName).value.trim();
   if (!newName || newName === oldName) return;
-  db.clinics[db.clinics.indexOf(oldName)] = newName;
-  fillClinics();
+  
+  const index = db.clinics.indexOf(oldName);
+  if (index > -1) {
+    db.clinics[index] = newName;
+  }
+
+  const { error: caseError } = await supabaseClient.from('Cusp-driver').update({ clinic: newName }).eq('clinic', oldName);
+  
+  if (caseError) {
+    alert("Error updating cases with new clinic name: " + caseError.message);
+  }
+
   renderClinicManager();
+  fetchCases(); 
+  await saveClinicsToDB();
 }
 
-function deleteClinic(clinic) {
-  if (!confirm('Delete clinic?')) return;
+async function deleteClinic(clinic) {
+  if (!confirm('Delete clinic? Cases will remain, but the clinic name will be removed from the dropdown.')) return;
   db.clinics = db.clinics.filter(c => c !== clinic);
-  fillClinics();
   renderClinicManager();
+  await saveClinicsToDB();
 }
 
+// --- CASES MANAGER ---
 function renderCaseManager() {
   const el = document.getElementById('caseManageList');
   el.innerHTML = db.cases.map(c => `
@@ -706,7 +732,6 @@ function renderReport() {
     if (statusFilter !== 'All' && c.status !== statusFilter) return false;
     if (clinic && c.clinic !== clinic) return false;
     
-    // Apply Search Filter
     if (search) {
       const matchText = [c.patient, c.file, c.job, c.doctor].join(' ').toLowerCase();
       if (!matchText.includes(search)) return false;
@@ -1069,58 +1094,46 @@ async function processPDF() {
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
-        const textContent = await page.textContent;
-        const pageText = textContent.items.map(item => item.str).join('  '); // Double space to separate words
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join('  '); 
         fullText += pageText + "  ";
       }
 
       statusText.textContent = "Extracting data...";
 
-      // SMARTER REGEX: Looks for the keyword, then grabs text UNTIL it hits the next keyword.
-      
-      // Patient: Stops when it sees "File No", "Due Date", "Dentist", etc.
       const patientMatch = fullText.match(/Patient\s+(.*?)(?=\s+(?:File No|Due Date|Dentist|Status|Job Order))/i);
       const patient = patientMatch ? patientMatch[1].trim() : '';
 
-      // Dentist: Stops when it sees "Status", "Created At", "Pickup"
       const doctorMatch = fullText.match(/Dentist\s+(.*?)(?=\s+(?:Status|Created At|Pickup|File No))/i);
       const doctor = doctorMatch ? doctorMatch[1].trim() : '';
 
-      // File No: Grabs just the numbers
       const fileMatch = fullText.match(/File No\s+(\d+)/i);
       const fileNo = fileMatch ? fileMatch[1].trim() : '';
 
-      // Job Order: Grabs just the numbers
       const jobMatch = fullText.match(/Job Order\s+(\d+)/i);
       const jobNo = jobMatch ? jobMatch[1].trim() : '';
 
-      // Clinic: Stops when it sees "Patient" or "Dentist"
       const clinicMatch = fullText.match(/Clinic\s+(.*?)(?=\s+(?:Patient|Dentist|File No))/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      // Amount
       const amountMatch = fullText.match(/SAR\s*([0-9.]+)/i);
       const amount = amountMatch ? Number(amountMatch[1]) : 0;
 
-      // Service Name (Usually all caps before "x" and quantity)
       const serviceMatch = fullText.match(/([A-Z\s]+)\s+[0-9]+\s*x\s*[0-9]+/);
       const serviceName = serviceMatch ? serviceMatch[1].trim() : 'Dental Service';
       
-      // Date
       const dateMatch = fullText.match(/(\d{2})-(\d{2})-(\d{4})/);
       let scheduledDate = new Date().toISOString().slice(0, 10);
       if (dateMatch) {
         scheduledDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
       }
 
-      // --- FILL THE FORM ---
       document.getElementById('patient').value = patient;
       document.getElementById('doctor').value = doctor;
       document.getElementById('job').value = jobNo;
       document.getElementById('file').value = fileNo;
       document.getElementById('caseDate').value = scheduledDate;
       
-      // Update Services
       const servicesContainer = document.getElementById('servicesContainer');
       servicesContainer.innerHTML = '';
       const row = document.createElement('div');
@@ -1135,14 +1148,11 @@ async function processPDF() {
       servicesContainer.appendChild(row);
       calcGrandTotal();
 
-      // --- CLINIC DROPDOWN LOGIC ---
       const clinicDropdown = document.getElementById('caseClinic');
       let foundClinic = false;
       
-      // Try to find a matching clinic in the dropdown list
       for (let i = 0; i < clinicDropdown.options.length; i++) {
         const optionText = clinicDropdown.options[i].value;
-        // If the option includes the extracted clinic name (e.g., "Pearl" matches "Pearl Clinic")
         if (optionText.toLowerCase().includes(clinicName.toLowerCase()) && clinicName !== '') {
           clinicDropdown.selectedIndex = i;
           foundClinic = true;
@@ -1150,9 +1160,8 @@ async function processPDF() {
         }
       }
 
-      // If not found, make it empty
       if (!foundClinic) {
-        clinicDropdown.selectedIndex = -1; // This makes it blank
+        clinicDropdown.selectedIndex = -1; 
       }
 
       statusText.textContent = "Data extracted! Please review the form below and click Save.";
@@ -1178,6 +1187,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     db.brand = data.brand || db.brand;
     db.subtitle = data.subtitle || db.subtitle;
     db.avatar = data.avatar || '';
+    if (data.clinics) db.clinics = data.clinics; // Load clinics
     applyAppearance(); 
   }
 });
