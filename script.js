@@ -1074,7 +1074,7 @@ async function savePins() {
 }
 
 // ==========================================
-// 4. PDF EXTRACTION (SMARTER REGEX)
+// 4. PDF EXTRACTION (LINE-BY-LINE SMART LOGIC)
 // ==========================================
 async function processPDF() {
   const fileInput = document.getElementById('pdfFile');
@@ -1101,6 +1101,11 @@ async function processPDF() {
 
       statusText.textContent = "Extracting data...";
 
+      // --- DEBUG: SHOW US EXACTLY WHAT THE APP SEES ---
+      console.log("PDF RAW TEXT:", fullText);
+      // If it fails to grab the service, this alert will show us why!
+      alert("Here is a snippet of what the app sees:\n\n" + fullText.substring(0, 1000));
+
       const patientMatch = fullText.match(/Patient\s+(.*?)(?=\s+(?:File No|Due Date|Dentist|Status|Job Order))/i);
       const patient = patientMatch ? patientMatch[1].trim() : '';
 
@@ -1116,31 +1121,33 @@ async function processPDF() {
       const clinicMatch = fullText.match(/Clinic\s+(.*?)(?=\s+(?:Patient|Dentist|File No))/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      // --- NEW SMARTER SERVICE EXTRACTION ---
-      // This looks for the Service (all uppercase letters) followed by the quantity and price
-      const serviceRegex = /([A-Z\s]{3,})\s+(?:.*?)\s+(\d+)\s*x\s*(\d+(?:\.\d+)?)/;
-      const serviceMatch = fullText.match(serviceRegex);
-      
+      // --- SUPER SMART SERVICE EXTRACTION ---
       let serviceName = 'Dental Service';
       let qty = 1;
       let price = 0;
 
-      if (serviceMatch) {
-        serviceName = serviceMatch[1].trim();
-        qty = Number(serviceMatch[2]) || 1;
-        price = Number(serviceMatch[3]) || 0;
-      } else {
-        // Fallback: If the main regex fails, look for the cost
-        const amountMatch = fullText.match(/SAR\s*([0-9.]+)/i);
-        price = amountMatch ? Number(amountMatch[1]) : 0;
+      // Look for "1 x 50" pattern
+      const qtyPriceMatch = fullText.match(/(\d+)\s*x\s*(\d+(?:\.\d+)?)/i);
+      if (qtyPriceMatch) {
+        qty = Number(qtyPriceMatch[1]) || 1;
+        price = Number(qtyPriceMatch[2]) || 0;
       }
 
+      // Look for the service name (Usually next to or before the qty)
+      // It grabs everything that is ALL CAPS (like WAX BITE)
+      const serviceNameMatch = fullText.match(/([A-Z\s]{4,})\s+(?:\d+\s*x\s*\d+)/);
+      if (serviceNameMatch) {
+        serviceName = serviceNameMatch[1].trim();
+      }
+
+      // Find the date
       const dateMatch = fullText.match(/(\d{2})-(\d{2})-(\d{4})/);
       let scheduledDate = new Date().toISOString().slice(0, 10);
       if (dateMatch) {
         scheduledDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
       }
 
+      // Fill the form
       document.getElementById('patient').value = patient;
       document.getElementById('doctor').value = doctor;
       document.getElementById('job').value = jobNo;
@@ -1173,9 +1180,7 @@ async function processPDF() {
         }
       }
 
-      if (!foundClinic) {
-        clinicDropdown.selectedIndex = -1; 
-      }
+      if (!foundClinic) clinicDropdown.selectedIndex = -1; 
 
       statusText.textContent = "Data extracted! Please review the form below and click Save.";
       
