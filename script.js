@@ -1102,48 +1102,53 @@ async function processPDF() {
 
       statusText.textContent = "Extracting data...";
 
-      // --- DEBUG: SHOW US EXACTLY WHAT THE APP SEES ---
-      alert("Here is the raw text the app sees:\n\n" + fullText.substring(0, 800));
-
-      // (The rest of the extraction code stays the same)
-      const patientMatch = fullText.match(/Patient\s+(.*?)\s+(?:File No|Due Date|Job Order)/i);
+      // 1. Patient (Stops at File No)
+      const patientMatch = fullText.match(/Patient\s+(.*?)\s+(?:File No)/i);
       const patient = patientMatch ? patientMatch[1].trim() : '';
 
-      const doctorMatch = fullText.match(/Dentist\s+(.*?)\s+(?:Status|Created At|Pickup|File No)/i);
+      // 2. Doctor (Stops at Status)
+      const doctorMatch = fullText.match(/Dentist\s+(.*?)\s+(?:Status)/i);
       const doctor = doctorMatch ? doctorMatch[1].trim() : '';
 
+      // 3. File & Job
       const fileMatch = fullText.match(/File No\s+(\d+)/i);
       const fileNo = fileMatch ? fileMatch[1].trim() : '';
 
       const jobMatch = fullText.match(/Job Order\s+(\d+)/i);
       const jobNo = jobMatch ? jobMatch[1].trim() : '';
 
-      const clinicMatch = fullText.match(/Clinic\s+(.*?)\s+(?:Patient|Dentist|File No)/i);
+      // 4. Clinic
+      const clinicMatch = fullText.match(/Clinic\s+(.*?)\s+(?:Patient)/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      const serviceNameMatch = fullText.match(/Service Name\s+(.*?)\s+(?:Doctor|[A-Z][a-z]+)/i);
-      let serviceName = serviceNameMatch ? serviceNameMatch[1].trim() : 'Dental Service';
+      // 5. Extract Service Name (Grabs the ALL CAPS text right after "Cost 1")
+      const serviceMatch = fullText.match(/Cost\s+\d+\s+([A-Z\s]+)/i);
+      let serviceName = serviceMatch ? serviceMatch[1].trim() : 'Dental Service';
 
+      // 6. Extract Qty & Price (Looks for the "1 x 300" format)
       let qty = 1;
       let price = 0;
-      const qtyPriceMatch = fullText.match(/(\d+)\s*x\s*(\d+)\s*(?:\(|SAR)/i);
+      const qtyPriceMatch = fullText.match(/(\d+)\s+x\s+(\d+)/i);
       if (qtyPriceMatch) {
         qty = Number(qtyPriceMatch[1]) || 1;
         price = Number(qtyPriceMatch[2]) || 0;
       }
 
+      // 7. Extract Date
       const dateMatch = fullText.match(/(\d{2})-(\d{2})-(\d{4})/);
       let scheduledDate = new Date().toISOString().slice(0, 10);
       if (dateMatch) {
         scheduledDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
       }
 
+      // FILL THE FORM
       document.getElementById('patient').value = patient;
       document.getElementById('doctor').value = doctor;
       document.getElementById('job').value = jobNo;
       document.getElementById('file').value = fileNo;
       document.getElementById('caseDate').value = scheduledDate;
       
+      // Update Services Box
       const servicesContainer = document.getElementById('servicesContainer');
       servicesContainer.innerHTML = '';
       const row = document.createElement('div');
@@ -1158,6 +1163,7 @@ async function processPDF() {
       servicesContainer.appendChild(row);
       calcGrandTotal();
 
+      // Match Clinic Dropdown
       const clinicDropdown = document.getElementById('caseClinic');
       let foundClinic = false;
       for (let i = 0; i < clinicDropdown.options.length; i++) {
@@ -1169,7 +1175,7 @@ async function processPDF() {
       }
       if (!foundClinic) clinicDropdown.selectedIndex = -1; 
 
-      statusText.textContent = "Data extracted! Please review the form below and click Save.";
+      statusText.textContent = "Data extracted! Please review and click Save.";
       
     } catch (error) {
       console.error(error);
