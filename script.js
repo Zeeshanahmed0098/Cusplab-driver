@@ -1101,7 +1101,7 @@ async function processPDF() {
 
       statusText.textContent = "Extracting data...";
 
-      // EXACT REGEX MATCHING BASED ON YOUR SCREENSHOT
+      // EXACT REGEX MATCHING
       const patientMatch = fullText.match(/Patient\s+(.*?)\s+(?:File No|Due Date|Job Order)/i);
       const patient = patientMatch ? patientMatch[1].trim() : '';
 
@@ -1117,20 +1117,18 @@ async function processPDF() {
       const clinicMatch = fullText.match(/Clinic\s+(.*?)\s+(?:Patient|Dentist|File No)/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      // SMART SERVICE EXTRACTION
-      let serviceName = 'Dental Service';
+      // SMART SERVICE EXTRACTION 
+      // We look for the word "Service Name" and grab everything until the Doctor's name or "Qty"
+      const serviceNameMatch = fullText.match(/Service Name\s+(.*?)\s+(?:Doctor|[A-Z][a-z]+)/i);
+      let serviceName = serviceNameMatch ? serviceNameMatch[1].trim() : 'Dental Service';
+
+      // Extract Qty & Cost
       let qty = 1;
       let price = 0;
-
-      const qtyPriceMatch = fullText.match(/(\d+)\s*x\s*(\d+(?:\.\d+)?)/i);
+      const qtyPriceMatch = fullText.match(/(\d+)\s*x\s*(\d+)\s*(?:\(|SAR)/i);
       if (qtyPriceMatch) {
         qty = Number(qtyPriceMatch[1]) || 1;
         price = Number(qtyPriceMatch[2]) || 0;
-      }
-
-      const serviceNameMatch = fullText.match(/([A-Z\s]{4,})\s+(?:\d+\s*x\s*\d+)/i);
-      if (serviceNameMatch) {
-        serviceName = serviceNameMatch[1].trim();
       }
 
       const dateMatch = fullText.match(/(\d{2})-(\d{2})-(\d{4})/);
@@ -1174,7 +1172,7 @@ async function processPDF() {
       
     } catch (error) {
       console.error(error);
-      alert("Failed to read PDF. Make sure it's a valid file.");
+      alert("Failed to read PDF.");
       statusText.textContent = "Error reading PDF.";
     }
   };
