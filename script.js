@@ -1076,6 +1076,7 @@ async function savePins() {
 // ==========================================
 // 4. PDF EXTRACTION (SMART LOGIC BASED ON YOUR SCREENSHOT)
 // ==========================================
+
 async function processPDF() {
   const fileInput = document.getElementById('pdfFile');
   if (!fileInput.files.length) return alert('Please select a PDF file first.');
@@ -1101,7 +1102,10 @@ async function processPDF() {
 
       statusText.textContent = "Extracting data...";
 
-      // EXACT REGEX MATCHING
+      // --- DEBUG: SHOW US EXACTLY WHAT THE APP SEES ---
+      alert("Here is the raw text the app sees:\n\n" + fullText.substring(0, 800));
+
+      // (The rest of the extraction code stays the same)
       const patientMatch = fullText.match(/Patient\s+(.*?)\s+(?:File No|Due Date|Job Order)/i);
       const patient = patientMatch ? patientMatch[1].trim() : '';
 
@@ -1117,12 +1121,9 @@ async function processPDF() {
       const clinicMatch = fullText.match(/Clinic\s+(.*?)\s+(?:Patient|Dentist|File No)/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      // SMART SERVICE EXTRACTION 
-      // We look for the word "Service Name" and grab everything until the Doctor's name or "Qty"
       const serviceNameMatch = fullText.match(/Service Name\s+(.*?)\s+(?:Doctor|[A-Z][a-z]+)/i);
       let serviceName = serviceNameMatch ? serviceNameMatch[1].trim() : 'Dental Service';
 
-      // Extract Qty & Cost
       let qty = 1;
       let price = 0;
       const qtyPriceMatch = fullText.match(/(\d+)\s*x\s*(\d+)\s*(?:\(|SAR)/i);
@@ -1179,6 +1180,25 @@ async function processPDF() {
   
   reader.readAsArrayBuffer(file);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // ==========================================
 // 5. INITIALIZE BUTTON & FETCH APPEARANCE
