@@ -1102,11 +1102,11 @@ async function processPDF() {
 
       statusText.textContent = "Extracting data...";
 
-      // 1. Patient (Stops at File No)
+      // 1. Patient
       const patientMatch = fullText.match(/Patient\s+(.*?)\s+(?:File No)/i);
       const patient = patientMatch ? patientMatch[1].trim() : '';
 
-      // 2. Doctor (Stops at Status)
+      // 2. Doctor
       const doctorMatch = fullText.match(/Dentist\s+(.*?)\s+(?:Status)/i);
       const doctor = doctorMatch ? doctorMatch[1].trim() : '';
 
@@ -1121,11 +1121,17 @@ async function processPDF() {
       const clinicMatch = fullText.match(/Clinic\s+(.*?)\s+(?:Patient)/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      // 5. Extract Service Name (Grabs the ALL CAPS text right after "Cost 1")
-      const serviceMatch = fullText.match(/Cost\s+\d+\s+([A-Z\s]+)/i);
-      let serviceName = serviceMatch ? serviceMatch[1].trim() : 'Dental Service';
+      // 5. EXACT SERVICE NAME EXTRACTION
+      // This looks for the specific header and grabs the service right before the Doctor's name
+      const serviceRegex = /Service Name\s+Doctor\s+Qty\s+Tooth Color\s+Teeth No\s+Cost\s+\d+\s+(.*?)(?=\s+Dr\.|\s+Dr\s+)/i;
+      const serviceMatch = fullText.match(serviceRegex);
+      
+      let serviceName = 'Dental Service';
+      if (serviceMatch) {
+        serviceName = serviceMatch[1].trim();
+      }
 
-      // 6. Extract Qty & Price (Looks for the "1 x 300" format)
+      // 6. Qty & Price
       let qty = 1;
       let price = 0;
       const qtyPriceMatch = fullText.match(/(\d+)\s+x\s+(\d+)/i);
@@ -1134,7 +1140,7 @@ async function processPDF() {
         price = Number(qtyPriceMatch[2]) || 0;
       }
 
-      // 7. Extract Date
+      // 7. Date
       const dateMatch = fullText.match(/(\d{2})-(\d{2})-(\d{4})/);
       let scheduledDate = new Date().toISOString().slice(0, 10);
       if (dateMatch) {
@@ -1148,7 +1154,6 @@ async function processPDF() {
       document.getElementById('file').value = fileNo;
       document.getElementById('caseDate').value = scheduledDate;
       
-      // Update Services Box
       const servicesContainer = document.getElementById('servicesContainer');
       servicesContainer.innerHTML = '';
       const row = document.createElement('div');
@@ -1163,7 +1168,6 @@ async function processPDF() {
       servicesContainer.appendChild(row);
       calcGrandTotal();
 
-      // Match Clinic Dropdown
       const clinicDropdown = document.getElementById('caseClinic');
       let foundClinic = false;
       for (let i = 0; i < clinicDropdown.options.length; i++) {
@@ -1186,7 +1190,6 @@ async function processPDF() {
   
   reader.readAsArrayBuffer(file);
 }
-
 
 
 
