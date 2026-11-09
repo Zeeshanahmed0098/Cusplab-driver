@@ -1074,7 +1074,7 @@ async function savePins() {
 }
 
 // ==========================================
-// 4. PDF EXTRACTION (LINE-BY-LINE SMART LOGIC)
+// 4. PDF EXTRACTION (SMART LOGIC BASED ON YOUR SCREENSHOT)
 // ==========================================
 async function processPDF() {
   const fileInput = document.getElementById('pdfFile');
@@ -1095,21 +1095,17 @@ async function processPDF() {
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join('  '); 
-        fullText += pageText + "  ";
+        const pageText = textContent.items.map(item => item.str).join(' '); 
+        fullText += pageText + " ";
       }
 
       statusText.textContent = "Extracting data...";
 
-      // --- DEBUG: SHOW US EXACTLY WHAT THE APP SEES ---
-      console.log("PDF RAW TEXT:", fullText);
-      // If it fails to grab the service, this alert will show us why!
-      alert("Here is a snippet of what the app sees:\n\n" + fullText.substring(0, 1000));
-
-      const patientMatch = fullText.match(/Patient\s+(.*?)(?=\s+(?:File No|Due Date|Dentist|Status|Job Order))/i);
+      // EXACT REGEX MATCHING BASED ON YOUR SCREENSHOT
+      const patientMatch = fullText.match(/Patient\s+(.*?)\s+(?:File No|Due Date|Job Order)/i);
       const patient = patientMatch ? patientMatch[1].trim() : '';
 
-      const doctorMatch = fullText.match(/Dentist\s+(.*?)(?=\s+(?:Status|Created At|Pickup|File No))/i);
+      const doctorMatch = fullText.match(/Dentist\s+(.*?)\s+(?:Status|Created At|Pickup|File No)/i);
       const doctor = doctorMatch ? doctorMatch[1].trim() : '';
 
       const fileMatch = fullText.match(/File No\s+(\d+)/i);
@@ -1118,36 +1114,31 @@ async function processPDF() {
       const jobMatch = fullText.match(/Job Order\s+(\d+)/i);
       const jobNo = jobMatch ? jobMatch[1].trim() : '';
 
-      const clinicMatch = fullText.match(/Clinic\s+(.*?)(?=\s+(?:Patient|Dentist|File No))/i);
+      const clinicMatch = fullText.match(/Clinic\s+(.*?)\s+(?:Patient|Dentist|File No)/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      // --- SUPER SMART SERVICE EXTRACTION ---
+      // SMART SERVICE EXTRACTION
       let serviceName = 'Dental Service';
       let qty = 1;
       let price = 0;
 
-      // Look for "1 x 50" pattern
       const qtyPriceMatch = fullText.match(/(\d+)\s*x\s*(\d+(?:\.\d+)?)/i);
       if (qtyPriceMatch) {
         qty = Number(qtyPriceMatch[1]) || 1;
         price = Number(qtyPriceMatch[2]) || 0;
       }
 
-      // Look for the service name (Usually next to or before the qty)
-      // It grabs everything that is ALL CAPS (like WAX BITE)
-      const serviceNameMatch = fullText.match(/([A-Z\s]{4,})\s+(?:\d+\s*x\s*\d+)/);
+      const serviceNameMatch = fullText.match(/([A-Z\s]{4,})\s+(?:\d+\s*x\s*\d+)/i);
       if (serviceNameMatch) {
         serviceName = serviceNameMatch[1].trim();
       }
 
-      // Find the date
       const dateMatch = fullText.match(/(\d{2})-(\d{2})-(\d{4})/);
       let scheduledDate = new Date().toISOString().slice(0, 10);
       if (dateMatch) {
         scheduledDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
       }
 
-      // Fill the form
       document.getElementById('patient').value = patient;
       document.getElementById('doctor').value = doctor;
       document.getElementById('job').value = jobNo;
@@ -1170,16 +1161,13 @@ async function processPDF() {
 
       const clinicDropdown = document.getElementById('caseClinic');
       let foundClinic = false;
-      
       for (let i = 0; i < clinicDropdown.options.length; i++) {
-        const optionText = clinicDropdown.options[i].value;
-        if (optionText.toLowerCase().includes(clinicName.toLowerCase()) && clinicName !== '') {
+        if (clinicDropdown.options[i].value.toLowerCase().includes(clinicName.toLowerCase()) && clinicName !== '') {
           clinicDropdown.selectedIndex = i;
           foundClinic = true;
           break;
         }
       }
-
       if (!foundClinic) clinicDropdown.selectedIndex = -1; 
 
       statusText.textContent = "Data extracted! Please review the form below and click Save.";
