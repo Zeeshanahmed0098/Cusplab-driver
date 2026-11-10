@@ -729,23 +729,29 @@ function renderReport() {
   const endDate = document.getElementById('reportEndDate').value;
 
   filteredReportCases = db.cases.filter(c => {
+    // 1. Check Status & Clinic
     if (statusFilter !== 'All' && c.status !== statusFilter) return false;
     if (clinic && c.clinic !== clinic) return false;
     
-    // Apply Search Filter
+    // 2. If user is searching, IGNORE DATES completely!
     if (search) {
       const matchText = [c.patient, c.file, c.job, c.doctor].join(' ').toLowerCase();
-      if (!matchText.includes(search)) return false;
+      return matchText.includes(search);
     }
 
+    // 3. If NO search, apply the date filters as normal
     const caseDate = (c.signedAt || c.scheduled || '').slice(0, 10);
     if (!caseDate) return false;
+    
     if (type === 'single') {
       if (singleDate && caseDate !== singleDate) return false;
-    } else {
+    } else if (type === 'range') {
       if (startDate && caseDate < startDate) return false;
       if (endDate && caseDate > endDate) return false;
+    } else if (type === 'all') {
+      return true; // Show everything
     }
+    
     return true;
   });
 
@@ -813,8 +819,10 @@ function printFullReport() {
   
   if (type === 'single') {
     dateLabel = document.getElementById('reportSingleDate').value;
-  } else {
+  } else if (type === 'range') {
     dateLabel = document.getElementById('reportStartDate').value + ' to ' + document.getElementById('reportEndDate').value;
+  } else {
+    dateLabel = 'All Dates';
   }
 
   let tableRows = filteredReportCases.map(c => {
