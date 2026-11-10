@@ -732,7 +732,7 @@ function renderReport() {
     if (statusFilter !== 'All' && c.status !== statusFilter) return false;
     if (clinic && c.clinic !== clinic) return false;
     
-    // THIS IS THE FIXED SEARCH LOGIC
+    // Apply Search Filter
     if (search) {
       const matchText = [c.patient, c.file, c.job, c.doctor].join(' ').toLowerCase();
       if (!matchText.includes(search)) return false;
@@ -1075,7 +1075,7 @@ async function savePins() {
 }
 
 // ==========================================
-// 4. PDF EXTRACTION (SMART LOGIC BASED ON YOUR SCREENSHOT)
+// 4. PDF EXTRACTION (SMART LOGIC)
 // ==========================================
 async function processPDF() {
   const fileInput = document.getElementById('pdfFile');
@@ -1121,7 +1121,7 @@ async function processPDF() {
       const clinicMatch = fullText.match(/Clinic\s+(.*?)\s+(?:Patient)/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      // 5. EXACT SERVICE NAME EXTRACTION (Fixed to stop at Dr.)
+      // 5. EXACT SERVICE NAME EXTRACTION
       const serviceRegex = /Service Name\s+Doctor\s+Qty\s+Tooth Color\s+Teeth No\s+Cost\s+\d+\s+(.*?)(?=\s+Dr\.|\s+Dr\s+)/i;
       const serviceMatch = fullText.match(serviceRegex);
       

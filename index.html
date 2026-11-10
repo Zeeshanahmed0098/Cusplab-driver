@@ -4,11 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CUSP Delivery System</title>
-<!-- Barcode & PDF Libraries -->
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<!-- Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -174,7 +172,7 @@
       </div>
     </div>
 
-    <!-- PDF AUTO-FILL -->
+    <!-- BULK UPLOAD FROM EXCEL -->
     <div class="card" style="border: 2px solid #2875ad; background: #f0f7ff;">
       <h3 style="margin-top:0; color: #2875ad;">Auto-Fill from Salaya PDF</h3>
       <p class="muted">Upload the PDF. The app will read it and fill the form below so you can review it before saving.</p>
@@ -194,7 +192,6 @@
         <div><label>File number (Barcode #)</label><input id="file" placeholder="e.g. 1048545"></div>
         <div><label>Scheduled delivery date</label><input id="caseDate" type="date"></div>
         
-        <!-- NEW FIELDS FROM SALAYA -->
         <div><label>Tooth Color</label><input id="toothColor" placeholder="e.g. A2"></div>
         <div><label>Teeth No</label><input id="teethNo" placeholder="e.g. 14, 15"></div>
         <div style="grid-column: span 2;"><label>Comments</label><input id="comments" placeholder="Bite block"></div>
@@ -217,6 +214,7 @@
     <div class="card no-print">
       <h2 style="margin-top:0">Generate Reports</h2>
       
+      <!-- NEW SEARCH BOX -->
       <div style="margin-bottom: 15px;">
         <input id="reportSearch" placeholder="🔍 Search by Patient, File No, Job Order, or Doctor..." oninput="renderReport()">
       </div>
