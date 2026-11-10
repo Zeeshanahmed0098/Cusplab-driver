@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CUSP Delivery System</title>
+<link rel="icon" type="image/png" href="https://zeeshanahmed0098.github.io/Cusplab-driver/cusplogo.png">
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -25,7 +26,7 @@
 <!-- LOGIN -->
 <div class="card no-print" id="loginCard">
   <h2 style="margin-top:0">Welcome to CUSP</h2>
-  <p class="muted">Demo PINs: Admin 1234 · Driver 1111</p>
+  <p class="muted">Please Select The Mode of Access</p>
   <div class="grid">
     <div>
       <label>Access type</label>
@@ -71,7 +72,7 @@
     <div class="card">
       <h3 style="margin-top:0">Scan Barcode (Optional)</h3>
       <div class="row">
-        <button onclick="startScanner()" id="startScanBtn">📷 Open Camera</button>
+        <button onclick="startScanner()" id="startScanBtn">📷 Open Camera for Scanning Barcodes</button>
         <button class="secondary hidden" onclick="stopScanner()" id="stopScanBtn">Stop Camera</button>
       </div>
       <div id="reader" class="hidden"></div>
@@ -298,7 +299,7 @@
   </section>
 </div>
 
-<footer>Customizable prototype · Demo data stays in this browser only.</footer>
+<footer></footer>
 </main>
 
 <script src="script.js"></script>

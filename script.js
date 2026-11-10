@@ -640,19 +640,23 @@ async function deleteClinic(clinic) {
   await saveClinicsToDB();
 }
 
-// --- CASES MANAGER ---
+// --- BEAUTIFUL CASES MANAGER ---
 function renderCaseManager() {
   const el = document.getElementById('caseManageList');
   el.innerHTML = db.cases.map(c => `
     <div class="manage-row">
-      <div style="flex:2">
-        <b>${esc(c.clinic)}</b> <br>
-        <span class="muted">Dr: ${esc(c.doctor)} · Pt: ${esc(c.patient)} · Job: ${esc(c.job)}</span>
+      <div class="case-manage">
+        <div class="case-manage-info">
+          <b>${esc(c.clinic)}</b>
+          <span>Dr: ${esc(c.doctor)} · Pt: ${esc(c.patient)} · Job: ${esc(c.job)}</span>
+        </div>
+        <div class="case-manage-actions">
+          ${status(c.status)}
+          <button class="secondary" onclick="printSticker('${c.id}')">Print Sticker</button>
+          <button class="secondary" onclick="editCase('${c.id}')">Edit</button>
+          <button class="danger" onclick="deleteCase('${c.id}')">Delete</button>
+        </div>
       </div>
-      ${status(c.status)}
-      <button class="secondary" onclick="printSticker('${c.id}')">Print Sticker</button>
-      <button class="secondary" onclick="editCase('${c.id}')">Edit</button>
-      <button class="danger" onclick="deleteCase('${c.id}')">Delete</button>
     </div>
   `).join('');
 }
@@ -729,17 +733,15 @@ function renderReport() {
   const endDate = document.getElementById('reportEndDate').value;
 
   filteredReportCases = db.cases.filter(c => {
-    // 1. Check Status & Clinic
     if (statusFilter !== 'All' && c.status !== statusFilter) return false;
     if (clinic && c.clinic !== clinic) return false;
     
-    // 2. If user is searching, IGNORE DATES completely!
+    // If searching, ignore dates
     if (search) {
       const matchText = [c.patient, c.file, c.job, c.doctor].join(' ').toLowerCase();
       return matchText.includes(search);
     }
 
-    // 3. If NO search, apply the date filters as normal
     const caseDate = (c.signedAt || c.scheduled || '').slice(0, 10);
     if (!caseDate) return false;
     
@@ -749,7 +751,7 @@ function renderReport() {
       if (startDate && caseDate < startDate) return false;
       if (endDate && caseDate > endDate) return false;
     } else if (type === 'all') {
-      return true; // Show everything
+      return true;
     }
     
     return true;
@@ -853,17 +855,31 @@ function printFullReport() {
     <html><head><title>${statusFilter} Delivery Report</title>
     <style>
       body { font-family: Arial, sans-serif; padding: 20px; }
-      h1 { color: #173b60; text-align: center; margin-bottom: 5px; }
-      p.meta { text-align: center; font-size: 14px; color: #555; margin-top: 0; margin-bottom: 20px; }
+      .header-container { display: flex; align-items: center; justify-content: center; border-bottom: 3px solid #173b60; padding-bottom: 15px; margin-bottom: 20px; gap: 20px; }
+      .header-container img { height: 80px; width: auto; }
+      .header-text { text-align: left; }
+      .header-text h1 { color: #173b60; margin: 0; font-size: 24px; }
+      .header-text p { margin: 5px 0 0 0; font-size: 14px; color: #555; }
+      p.meta { text-align: center; font-size: 14px; color: #333; margin-top: 0; margin-bottom: 20px; font-weight: bold; }
       table { width: 100%; border-collapse: collapse; font-size: 12px; }
       th, td { border: 1px solid #cbd5df; padding: 8px; text-align: left; vertical-align: middle; }
       th { background: #edf2f7; }
       .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #777; }
-      @media print { body { padding: 0; } }
+      @media print { body { padding: 0; } .header-container { border-bottom: 3px solid #173b60; } }
     </style>
     </head><body>
-      <h1>${esc(db.brand)}</h1>
-      <p class="meta"><b>${statusFilter} Delivery Report</b> | Clinic: ${esc(clinicFilter)} | Date: ${esc(dateLabel)}</p>
+      
+      <div class="header-container">
+        <!-- ABSOLUTE GITHUB IMAGE PATH -->
+        <img src="https://raw.githubusercontent.com/Zeeshanahmed0098/Cusplab-driver/main/cusplogo.png" alt="CUSP Logo">
+        <div class="header-text">
+          <h1>${esc(db.brand)}</h1>
+          <p>${esc(db.subtitle)}</p>
+        </div>
+      </div>
+
+      <p class="meta">${statusFilter} Delivery Report | Clinic: ${esc(clinicFilter)} | Date: ${esc(dateLabel)}</p>
+      
       <table>
         <thead>
           <tr><th>Date</th><th>Clinic / Dr</th><th>Patient / Ref</th><th>Services</th><th>Amount</th><th>Details / Sign</th></tr>
@@ -896,7 +912,11 @@ function printSingleRecord(id) {
     <style>
       body { font-family: Arial, sans-serif; padding: 30px; }
       .invoice { border: 1px solid #ccc; padding: 25px; max-width: 600px; margin: 0 auto; border-radius: 8px; }
-      h2 { color: #173b60; margin-top: 0; text-align: center; border-bottom: 2px solid #173b60; padding-bottom: 10px; }
+      
+      .header-container { display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #173b60; }
+      .header-container img { height: 70px; width: auto; }
+      .header-container h2 { color: #173b60; margin: 0; font-size: 22px; text-align: left; border: none; padding: 0; }
+
       table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
       th, td { padding: 8px; border-bottom: 1px solid #eee; text-align: left; }
       td:first-child { font-weight: bold; color: #555; }
@@ -908,7 +928,13 @@ function printSingleRecord(id) {
     </style>
     </head><body>
       <div class="invoice">
-        <h2>${esc(db.brand)}</h2>
+        
+        <div class="header-container">
+          <!-- ABSOLUTE GITHUB IMAGE PATH -->
+          <img src="https://raw.githubusercontent.com/Zeeshanahmed0098/Cusplab-driver/main/cusplogo.png" alt="CUSP Logo">
+          <h2>${esc(db.brand)}</h2>
+        </div>
+
         <table>
           <tr><td>Status</td><td>${status(c.status)}</td></tr>
           <tr><td>Clinic Name</td><td>${esc(c.clinic)}</td></tr>
@@ -1110,26 +1136,21 @@ async function processPDF() {
 
       statusText.textContent = "Extracting data...";
 
-      // 1. Patient
       const patientMatch = fullText.match(/Patient\s+(.*?)\s+(?:File No)/i);
       const patient = patientMatch ? patientMatch[1].trim() : '';
 
-      // 2. Doctor
       const doctorMatch = fullText.match(/Dentist\s+(.*?)\s+(?:Status)/i);
       const doctor = doctorMatch ? doctorMatch[1].trim() : '';
 
-      // 3. File & Job
       const fileMatch = fullText.match(/File No\s+(\d+)/i);
       const fileNo = fileMatch ? fileMatch[1].trim() : '';
 
       const jobMatch = fullText.match(/Job Order\s+(\d+)/i);
       const jobNo = jobMatch ? jobMatch[1].trim() : '';
 
-      // 4. Clinic
       const clinicMatch = fullText.match(/Clinic\s+(.*?)\s+(?:Patient)/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      // 5. EXACT SERVICE NAME EXTRACTION
       const serviceRegex = /Service Name\s+Doctor\s+Qty\s+Tooth Color\s+Teeth No\s+Cost\s+\d+\s+(.*?)(?=\s+Dr\.|\s+Dr\s+)/i;
       const serviceMatch = fullText.match(serviceRegex);
       
@@ -1138,7 +1159,6 @@ async function processPDF() {
         serviceName = serviceMatch[1].trim();
       }
 
-      // 6. Qty & Price
       let qty = 1;
       let price = 0;
       const qtyPriceMatch = fullText.match(/(\d+)\s+x\s+(\d+)/i);
@@ -1147,14 +1167,12 @@ async function processPDF() {
         price = Number(qtyPriceMatch[2]) || 0;
       }
 
-      // 7. Date
       const dateMatch = fullText.match(/(\d{2})-(\d{2})-(\d{4})/);
       let scheduledDate = new Date().toISOString().slice(0, 10);
       if (dateMatch) {
         scheduledDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
       }
 
-      // FILL THE FORM
       document.getElementById('patient').value = patient;
       document.getElementById('doctor').value = doctor;
       document.getElementById('job').value = jobNo;
