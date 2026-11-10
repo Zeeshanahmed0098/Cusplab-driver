@@ -732,6 +732,7 @@ function renderReport() {
     if (statusFilter !== 'All' && c.status !== statusFilter) return false;
     if (clinic && c.clinic !== clinic) return false;
     
+    // THIS IS THE FIXED SEARCH LOGIC
     if (search) {
       const matchText = [c.patient, c.file, c.job, c.doctor].join(' ').toLowerCase();
       if (!matchText.includes(search)) return false;
@@ -1076,7 +1077,6 @@ async function savePins() {
 // ==========================================
 // 4. PDF EXTRACTION (SMART LOGIC BASED ON YOUR SCREENSHOT)
 // ==========================================
-
 async function processPDF() {
   const fileInput = document.getElementById('pdfFile');
   if (!fileInput.files.length) return alert('Please select a PDF file first.');
@@ -1121,8 +1121,7 @@ async function processPDF() {
       const clinicMatch = fullText.match(/Clinic\s+(.*?)\s+(?:Patient)/i);
       let clinicName = clinicMatch ? clinicMatch[1].trim() : '';
 
-      // 5. EXACT SERVICE NAME EXTRACTION
-      // This looks for the specific header and grabs the service right before the Doctor's name
+      // 5. EXACT SERVICE NAME EXTRACTION (Fixed to stop at Dr.)
       const serviceRegex = /Service Name\s+Doctor\s+Qty\s+Tooth Color\s+Teeth No\s+Cost\s+\d+\s+(.*?)(?=\s+Dr\.|\s+Dr\s+)/i;
       const serviceMatch = fullText.match(serviceRegex);
       
@@ -1190,24 +1189,6 @@ async function processPDF() {
   
   reader.readAsArrayBuffer(file);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // ==========================================
 // 5. INITIALIZE BUTTON & FETCH APPEARANCE
